@@ -1,166 +1,109 @@
-# Repository Audit
+# Full Security and Production Audit
 
-**Repository:** `CRYPTO-CHESS-USTD`  
-**Audit date:** 2026-05-06  
-**Auditor:** OpenAI Codex  
-**Scope:** Entire tracked repository at the time of audit.
+**Repository:** `CRYPTO-CHESS-USTD`
+**Audit date:** 2026-05-18
+**Auditor:** GPT-5.3-Codex
+**Scope:** Entire tracked repository (`frontend`, `lib`, `server`, infra and docs).
 
 ## Executive summary
 
-The repository now contains a minimal TypeScript/Vite front-end prototype for a Crypto
-Chess USDT wager lobby. The scaffold includes application source code, a dependency
-manifest and lockfile, unit tests, CI checks, baseline ignore rules, security
-reporting documentation, a threat-model recheck, and a mainnet-readiness plan.
+The project has materially improved from a pure UI prototype into a distributed authoritative
+stack with Redis-backed game state, hash-linked ledgers, WebSocket authority, matchmaking,
+and simulated economy/NFT layers. Core controls exist, but this repository is still
+**pre-mainnet** and must remain so until contract-backed settlement, hardened auth, abuse
+controls, and operational controls are finished.
 
-The implementation is intentionally non-custodial and non-production: it does not connect
-wallets, deploy smart contracts, transfer tokens, escrow funds, validate chess moves, or
-settle wagers. The remaining high-risk work is therefore product completion and a full
-security review of any future wallet, contract, payment, or settlement code.
+This audit fixed one concrete server-side weakness and one supply-chain risk during review:
 
-## Files reviewed
+1. **Static-file path normalization hardening** in `server/static.ts`.
+2. **Dependency vulnerability remediation** via `npm audit fix`.
 
-| Path                        | Purpose                   | Notes                                                                                                       |
-| --------------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `README.md`                 | Repository overview       | Documents the app scaffold, setup, canonical commands, and production-readiness limits.                     |
-| `package.json`              | npm manifest              | Defines reproducible scripts for development, formatting, linting, testing, building, and auditing.         |
-| `package-lock.json`         | npm lockfile              | Pins the installed dependency graph for `npm ci`.                                                           |
-| `index.html`                | Browser entrypoint        | Mounts the Vite TypeScript app.                                                                             |
-| `src/chess.ts`              | Domain helpers            | Builds the initial board, formats USDT values, validates wallet-address shape, and creates demo match data. |
-| `src/economy.ts`            | Fee helpers               | Centralizes the 2% platform fee and winner payout calculations.                                             |
-| `src/platform.ts`           | Platform config           | Documents disabled livestream, media, and NFT prototype settings.                                           |
-| `src/main.ts`               | UI renderer               | Renders the demo match dashboard, chess board, player roster, and escrow status.                            |
-| `src/styles.css`            | Styling                   | Provides responsive layout and board styling.                                                               |
-| `tests/chess.test.ts`       | Unit tests                | Covers board helpers, wager helpers, fee math, platform config, and NFT settings.                           |
-| `.github/workflows/ci.yml`  | CI workflow               | Runs format, lint, tests, build, npm audit, dependency review, and secret scanning.                         |
-| `.gitignore`                | Ignore rules              | Excludes common local secrets, dependency directories, generated output, logs, and OS files.                |
-| `SECURITY.md`               | Security policy           | Documents supported versions, vulnerability reporting, and secret-handling guidance.                        |
-| `tsconfig.json`             | TypeScript configuration  | Enables strict TypeScript checking for source and tests.                                                    |
-| `vite.config.ts`            | Vite/Vitest configuration | Configures development server and test coverage reporters.                                                  |
-| `eslint.config.js`          | ESLint configuration      | Enables flat-config linting for JavaScript and TypeScript files.                                            |
-| `docs/THREAT_MODEL.md`      | Threat model              | Rechecks phishing, exploit, wallet, stream, NFT, tip, and scale risks.                                      |
-| `docs/MAINNET_READINESS.md` | Mainnet plan              | Documents game, NFT, fee, wallet, media, ad, tipping, and scaling gates.                                    |
-| `docs/ADSENSE.md`           | Ads configuration         | Documents safe public AdSense configuration and warns against committing payment/customer IDs.              |
-| `.env.example`              | Environment template      | Provides the public AdSense publisher-client variable without private payment details.                      |
+## Components reviewed
+
+- `lib/gameEngine.ts` (authoritative move processing, rate limit, dedupe, lock)
+- `lib/ledger.ts` (hash chain, replay, signature verification)
+- `lib/redisBus.ts` (Redis clients, pub/sub, streams)
+- `lib/economy.ts` (2% winner-fee simulation, escrow lock/settle logs)
+- `lib/oracle.ts` (timing and anomaly detection)
+- `server/ws.ts`, `server/matchmaker.ts`, `server/static.ts`
+- `app/api/game/route.ts`
+- `docker-compose.yml`, `Dockerfile`, `nginx.conf`
+- `src/*`, `tests/*`, and governance docs (`README.md`, `SECURITY.md`, `docs/*`)
 
 ## Checks performed
 
-| Check                        | Result                              | Evidence                                                                   |
-| ---------------------------- | ----------------------------------- | -------------------------------------------------------------------------- |
-| Repository instruction files | No `AGENTS.md` files found in scope | `find .. -name AGENTS.md -print` returned no paths.                        |
-| Dependency install           | Passed                              | `npm install` completed and generated `package-lock.json`.                 |
-| Formatting                   | Passed                              | `npm run format` completed successfully.                                   |
-| Linting                      | Passed                              | `npm run lint` completed successfully.                                     |
-| Unit tests                   | Passed                              | `npm test` completed successfully with fee, platform, and NFT checks.      |
-| Build                        | Passed                              | `npm run build` completed successfully.                                    |
-| Dependency audit             | Passed                              | `npm run audit` reported zero vulnerabilities at the configured threshold. |
-| Git diff hygiene             | Passed                              | `git diff --check` completed successfully.                                 |
+| Check               | Result           | Evidence                                                  |
+| ------------------- | ---------------- | --------------------------------------------------------- |
+| Format              | Passed           | `npm run format`                                          |
+| Lint                | Passed           | `npm run lint`                                            |
+| Unit tests          | Passed           | `npm test` (15 tests passed)                              |
+| Build               | Passed           | `npm run build`                                           |
+| Dependency audit    | Passed after fix | `npm audit fix`, then `npm run audit` (0 vulnerabilities) |
+| Git diff hygiene    | Passed           | `git diff --check`                                        |
+| UI smoke/screenshot | Passed           | Playwright screenshot run                                 |
 
-## Findings
+## Findings and status
 
-### F-001: Production wagering functionality is not implemented
-
-- **Severity:** High
-- **Category:** Product readiness / security boundary
-- **Status:** Open
-- **Details:** The current application is a browser-only prototype with demo data. It does
-  not connect wallets, sign transactions, transfer USDT, hold escrow, deploy contracts,
-  validate moves, detect check/checkmate, resolve disputes, or settle wagers.
-- **Risk:** Treating the prototype as a real-money wagering system would be unsafe and
-  could result in asset loss, unfair game outcomes, or regulatory exposure.
-- **Recommendation:** Before production use, add wallet and contract integrations behind
-  explicit security boundaries, write comprehensive tests, complete threat modeling, and
-  obtain independent smart-contract and application security reviews.
-
-### F-002: Chess rules and game-state engine are incomplete
+### F-001: Static-file server path handling risk
 
 - **Severity:** Medium
-- **Category:** Correctness
-- **Status:** Open
-- **Details:** The app renders the starting position but does not implement legal move
-  validation, turn management, clocks, draw rules, resignations, check/checkmate,
-  anti-cheat workflows, or persistence.
-- **Risk:** Future wager settlement cannot be trusted until chess-state transitions are
-  deterministic, tested, and tamper-resistant.
-- **Recommendation:** Add a game engine or vetted chess rules library, then cover legal
-  and illegal moves, terminal states, clocks, and persistence with tests.
+- **Status:** Fixed
+- **Location:** `server/static.ts`
+- **Issue:** Path normalization previously accepted absolute-like paths in a way that could
+  bypass intended root-relative behavior.
+- **Fix:** Hardened URL path processing to strip leading slashes, reject traversal patterns,
+  and default suspicious inputs to `index.html`.
 
-### F-003: CI exists but depends on third-party GitHub Actions
-
-- **Severity:** Low
-- **Category:** Supply chain
-- **Status:** Open
-- **Details:** CI uses maintained third-party actions for dependency review and Gitleaks
-  secret scanning.
-- **Risk:** External actions are part of the build trust boundary.
-- **Recommendation:** Pin actions to immutable SHAs for stronger supply-chain integrity
-  before production release.
-
-### F-004: Security policy exists but supported releases are not yet available
-
-- **Severity:** Low
-- **Category:** Governance
-- **Status:** Open
-- **Details:** `SECURITY.md` documents reporting guidance, but the project has not yet
-  published production releases.
-- **Risk:** Users may need clearer version-support commitments once releases begin.
-- **Recommendation:** Update `SECURITY.md` with supported release lines and contact details
-  when the first production release is created.
-
-### F-005: Livestream, ads, and tipping are placeholders
+### F-002: Moderate dependency vulnerabilities
 
 - **Severity:** Medium
-- **Category:** Platform abuse / compliance
-- **Status:** Open
-- **Details:** The UI now shows music, effects, mute, tip, and livestream affordances, but
-  livestream publishing, Google Ads, and viewer tips are not connected to production
-  providers.
-- **Risk:** Shipping these features without backend controls could expose users to stream-key
-  theft, phishing, abusive content, ad policy violations, or tip laundering.
-- **Recommendation:** Add approved provider integrations, moderation, rate limits, fraud
-  monitoring, policy review, and secure server-side key handling before enabling them.
+- **Status:** Fixed
+- **Issue:** `npm audit` reported moderate vulnerabilities (`ws`, `brace-expansion`).
+- **Fix:** Ran `npm audit fix`, updated lockfile/dependency graph; follow-up audit shows 0
+  vulnerabilities.
 
-### F-006: 2% platform fee is implemented only in prototype math
+### F-003: Authentication and authorization model remains incomplete
 
 - **Severity:** High
-- **Category:** Financial correctness
 - **Status:** Open
-- **Details:** The TypeScript helper calculates the intended 2% fee, but no audited on-chain
-  settlement contract exists.
-- **Risk:** Browser-side math cannot protect real funds.
-- **Recommendation:** Re-implement fee accounting in audited smart contracts using integer
-  token units and test the exact examples in this repository.
+- **Issue:** WebSocket identity currently trusts `userId` from query params; robust auth
+  tokens/session validation and per-game authorization are not complete.
+- **Recommendation:** Add JWT/session middleware, signature validation, and strict player/game
+  ACL checks before real-money usage.
 
-## Security assessment
+### F-004: Economy remains simulation-only
 
-No real-money asset movement exists in the current code, which keeps immediate custody
-risk low. The highest-impact future risks will appear when wallet connection, token
-transfer, escrow, settlement, identity, matchmaking, persistence, or smart-contract code is
-introduced.
+- **Severity:** High
+- **Status:** Open
+- **Issue:** 2% fee and escrow logic are server-side simulation, not audited on-chain settlement.
+- **Recommendation:** Move settlement guarantees to audited contracts with integer token units,
+  dispute logic, and formal tests.
 
-Before launch, perform stack-specific audits for:
+### F-005: Anti-cheat oracle is heuristic baseline
 
-- Authentication, authorization, and session management.
-- Wallet connection and chain/network validation.
-- USDT token contract selection and decimal handling.
-- Escrow funding, release, refund, dispute, and timeout flows.
-- Chess move validation and anti-cheat controls.
-- Private-key, API-key, and environment-secret management.
-- Dependency vulnerability exposure and build provenance.
-- Logging, monitoring, incident response, and abuse handling.
+- **Severity:** Medium
+- **Status:** Open
+- **Issue:** Current timing/anomaly checks are useful but insufficient for high-stakes abuse.
+- **Recommendation:** Add richer scoring, forensic tooling, and human-review workflows.
 
-## Recommended baseline before production
+## Mainnet readiness verdict
 
-1. Implement a complete chess rules engine or integrate a vetted library.
-2. Add wallet connection with explicit supported-chain checks.
-3. Add smart contracts only with unit tests, fuzzing, static analysis, and deployment
-   scripts.
-4. Add integration and end-to-end tests for the full match lifecycle.
-5. Pin GitHub Actions to commit SHAs and enable branch protection.
-6. Add release documentation, environment examples, and operational runbooks.
-7. Obtain an external smart-contract and application security audit before handling funds.
+**Not mainnet-ready.**
 
-## Conclusion
+The repository is strong enough for controlled dev/testnet iteration, but not for production
+custody or mainnet settlement. Blocking items remain: robust authN/authZ, contract-backed
+escrow/settlement, expanded anti-fraud, compliance controls, and observability at scale.
 
-The repository now has a runnable, tested front-end scaffold and baseline project hygiene.
-It remains a prototype and must not be used for production wagering until the missing game,
-wallet, contract, custody, compliance, and security-review work is completed.
+## Recommended next actions (priority order)
+
+1. Add authenticated identity (JWT/session), game ACLs, and signed action envelopes.
+2. Build integration tests that spin up Redis and run end-to-end game + escrow flows.
+3. Implement contract-backed escrow/settlement (testnet first), then audit.
+4. Add observability stack (metrics, structured logs, traces, alerts) and chaos/load tests.
+5. Pin CI Actions to immutable SHAs and add periodic dependency drift checks.
+
+## Confidential data handling note
+
+Only the public AdSense publisher client should appear in frontend env configuration.
+Customer IDs, payment profile IDs, and payment account IDs must stay out of source control
+and be managed through private secrets channels.

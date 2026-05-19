@@ -21,8 +21,9 @@ const server = createServer((request, response) => {
   }
 
   const url = new URL(request.url ?? "/", "http://localhost");
-  const safePath = normalize(url.pathname).replace(/^\.\.(\/|\\|$)/, "");
-  const requestedPath = safePath === "/" ? "/index.html" : safePath;
+  const normalized = normalize(url.pathname).replace(/^[\\/]+/, "");
+  const safePath = normalized.includes("..") ? "index.html" : normalized;
+  const requestedPath = safePath === "" ? "index.html" : safePath;
   const filePath = join(root, requestedPath);
   const fallbackPath = join(root, "index.html");
   const finalPath = existsSync(filePath) ? filePath : fallbackPath;
