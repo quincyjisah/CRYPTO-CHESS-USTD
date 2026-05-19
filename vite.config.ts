@@ -5,6 +5,8 @@ export default defineConfig({
     port: 5173,
   },
   test: {
+    include: ["tests/**/*.test.ts"],
+    exclude: ["tests/e2e/**"],
     coverage: {
       reporter: ["text", "lcov"],
     },

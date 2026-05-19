@@ -9,6 +9,19 @@ export interface AnalysisOutput {
   suspicious: boolean;
   score: number;
   reasons: string[];
+  moderationQueue: "none" | "review" | "urgent";
+  metrics: {
+    fastMoveRate: number;
+    topEngineRate: number;
+    lowCplRate: number;
+    expectedMoveMatchRate: number;
+  };
+}
+
+function queueForScore(score: number): AnalysisOutput["moderationQueue"] {
+  if (score >= 85) return "urgent";
+  if (score >= 60) return "review";
+  return "none";
 }
 
 export function processGameSignals(
@@ -23,5 +36,7 @@ export function processGameSignals(
     suspicious: result.score >= 60,
     score: result.score,
     reasons: result.reasons,
+    moderationQueue: queueForScore(result.score),
+    metrics: result.metrics,
   };
 }
