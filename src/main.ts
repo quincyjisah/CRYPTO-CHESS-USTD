@@ -9,7 +9,7 @@ import {
   getPieceIcon,
   validateWalletAddress,
   type WagerMatch,
-} from "./chess";
+} from "./features/chess";
 import { calculateMatchEconomy } from "./economy";
 import {
   defaultMediaSettings,
