@@ -32,6 +32,7 @@ docs/MAINNET_READINESS.md Mainnet, game, NFT, media, ads, tip, and scale gates
 docs/THREAT_MODEL.md      Exploit, phishing, wallet, stream, NFT, and scale recheck
 docs/ARCHITECTURE.md       Distributed backend and Redis architecture overview
 docs/ADSENSE.md            Safe Google AdSense environment configuration
+docs/AUTH.md               Session-token auth design for API and WebSocket actions
 .env.example               Public environment variable template
 lib/                       Authoritative game, ledger, Redis, oracle, economy, NFT modules
 server/                    WebSocket, static app, and matchmaking services
@@ -71,7 +72,7 @@ platform-fee rule: for example, `10 + 10 USDT = 20 USDT`, `0.40 USDT` goes to th
 platform, and `19.60 USDT` goes to the winner. Before handling real assets, add and audit
 the missing production components, including wallet connection, chain selection, contract
 code, contract tests, oracle/settlement rules, anti-cheat controls, custody/escrow design,
-monitoring, incident response, and an independent smart-contract security review.
+monitoring, incident response, an independent smart-contract security review, and dedicated auth token issuance infrastructure.
 
 See [`SECURITY.md`](SECURITY.md) for vulnerability reporting and supported-version
 guidance, [`AUDIT.md`](AUDIT.md) for the current audit status,

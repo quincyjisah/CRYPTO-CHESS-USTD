@@ -1,3 +1,8 @@
+import {
+  assertGameAccess,
+  signSessionToken,
+  verifySessionToken,
+} from "../lib/auth";
 import { describe, expect, it } from "vitest";
 import {
   createLedgerEntry,
@@ -72,5 +77,30 @@ describe("NFT piece simulation", () => {
     expect(piece.rarity).toBe("legendary");
     expect(transferred.ownerUserId).toBe("user-2");
     expect(pickRarity(0)).toBe("common");
+  });
+});
+
+describe("session auth", () => {
+  it("signs and verifies session tokens", () => {
+    const token = signSessionToken({
+      userId: "alice",
+      gameIds: ["g1"],
+      role: "player",
+      exp: Date.now() + 60_000,
+    });
+
+    const session = verifySessionToken(token);
+    expect(session.userId).toBe("alice");
+    expect(() => assertGameAccess(session, "g1")).not.toThrow();
+    expect(() => assertGameAccess(session, "g2")).toThrow();
+  });
+
+  it("rejects expired tokens", () => {
+    const token = signSessionToken({
+      userId: "alice",
+      exp: Date.now() - 1,
+    });
+
+    expect(() => verifySessionToken(token)).toThrow("Session token expired.");
   });
 });

@@ -1,3 +1,4 @@
+import { assertGameAccess, verifySessionToken } from "../../../lib/auth";
 import { createGame, getGame, submitMove } from "../../../lib/gameEngine";
 import { getRedis } from "../../../lib/redisBus";
 
@@ -14,6 +15,7 @@ export async function GET(request: Request): Promise<Response> {
 
 export async function POST(request: Request): Promise<Response> {
   const body = (await request.json()) as {
+    token?: string;
     action: "create" | "move";
     gameId: string;
     whiteUserId?: string;
@@ -23,9 +25,30 @@ export async function POST(request: Request): Promise<Response> {
     idempotencyKey?: string;
   };
 
+  if (!body.token) {
+    return json({ error: "token is required" }, 401);
+  }
+
+  let session;
+  try {
+    session = verifySessionToken(body.token);
+  } catch (error) {
+    return json(
+      { error: error instanceof Error ? error.message : "invalid token" },
+      401,
+    );
+  }
+
   if (body.action === "create") {
     if (!body.whiteUserId || !body.blackUserId) {
       return json({ error: "whiteUserId and blackUserId are required" }, 400);
+    }
+
+    if (session.role !== "admin") {
+      return json(
+        { error: "Only admin may create games through this endpoint" },
+        403,
+      );
     }
 
     const state = await createGame(getRedis(), {
@@ -41,6 +64,14 @@ export async function POST(request: Request): Promise<Response> {
       return json(
         { error: "userId, move, and idempotencyKey are required" },
         400,
+      );
+    }
+
+    assertGameAccess(session, body.gameId);
+    if (session.userId !== body.userId && session.role !== "admin") {
+      return json(
+        { error: "Token userId does not match submitted userId" },
+        403,
       );
     }
 

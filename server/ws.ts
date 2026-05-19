@@ -1,5 +1,10 @@
 import { createServer } from "node:http";
 import { URL } from "node:url";
+import {
+  assertGameAccess,
+  verifySessionToken,
+  type VerifiedSession,
+} from "../lib/auth";
 import { WebSocketServer, type WebSocket } from "ws";
 import { getGame, submitMove } from "../lib/gameEngine";
 import {
@@ -12,6 +17,7 @@ import {
 interface ClientContext {
   socket: WebSocket;
   userId: string;
+  session: VerifiedSession;
   gameId?: string;
   lastPongAt: number;
 }
@@ -53,15 +59,31 @@ wss.on("connection", (socket, request) => {
     request.url ?? "/",
     `http://${request.headers.host ?? "localhost"}`,
   );
-  const userId = url.searchParams.get("userId");
-  if (!userId) {
-    socket.close(1008, "userId is required");
+  const token = url.searchParams.get("token");
+  if (!token) {
+    socket.close(1008, "token is required");
     return;
   }
 
-  const context: ClientContext = { socket, userId, lastPongAt: Date.now() };
+  let session: VerifiedSession;
+  try {
+    session = verifySessionToken(token);
+  } catch (error) {
+    socket.close(
+      1008,
+      error instanceof Error ? error.message : "invalid token",
+    );
+    return;
+  }
+
+  const context: ClientContext = {
+    socket,
+    userId: session.userId,
+    session,
+    lastPongAt: Date.now(),
+  };
   clients.set(socket, context);
-  send(socket, { type: "connected", userId });
+  send(socket, { type: "connected", userId: session.userId });
 
   socket.on("message", (raw) => {
     void handleMessage(context, raw.toString()).catch((error: Error) => {
@@ -94,6 +116,7 @@ async function handleMessage(
     if (!message.gameId) {
       throw new Error("gameId is required to join.");
     }
+    assertGameAccess(context.session, message.gameId);
     await joinRoom(context, message.gameId);
     const state = await getGame(redis, message.gameId);
     send(context.socket, { type: "state", state });
@@ -104,6 +127,7 @@ async function handleMessage(
     if (!message.gameId) {
       throw new Error("gameId is required to recover.");
     }
+    assertGameAccess(context.session, message.gameId);
     const events = await readGameEvents(
       redis,
       message.gameId,
@@ -118,6 +142,7 @@ async function handleMessage(
       throw new Error("gameId, move, and idempotencyKey are required.");
     }
 
+    assertGameAccess(context.session, message.gameId);
     const result = await submitMove(redis, {
       gameId: message.gameId,
       userId: context.userId,
