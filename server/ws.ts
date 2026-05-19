@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import { URL } from "node:url";
 import {
   assertGameAccess,
+  assertSessionNotRevoked,
   verifySessionToken,
   type VerifiedSession,
 } from "../lib/auth";
@@ -83,7 +84,9 @@ wss.on("connection", (socket, request) => {
     lastPongAt: Date.now(),
   };
   clients.set(socket, context);
-  send(socket, { type: "connected", userId: session.userId });
+  void assertSessionNotRevoked(redis, context.session)
+    .then(() => send(socket, { type: "connected", userId: session.userId }))
+    .catch((error: Error) => socket.close(1008, error.message));
 
   socket.on("message", (raw) => {
     void handleMessage(context, raw.toString()).catch((error: Error) => {
@@ -106,6 +109,8 @@ async function handleMessage(
   raw: string,
 ): Promise<void> {
   const message = JSON.parse(raw) as IncomingMessage;
+
+  await assertSessionNotRevoked(redis, context.session);
 
   if (message.type === "ping") {
     send(context.socket, { type: "pong", timestamp: Date.now() });

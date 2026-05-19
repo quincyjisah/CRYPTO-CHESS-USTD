@@ -72,7 +72,7 @@ platform-fee rule: for example, `10 + 10 USDT = 20 USDT`, `0.40 USDT` goes to th
 platform, and `19.60 USDT` goes to the winner. Before handling real assets, add and audit
 the missing production components, including wallet connection, chain selection, contract
 code, contract tests, oracle/settlement rules, anti-cheat controls, custody/escrow design,
-monitoring, incident response, an independent smart-contract security review, and dedicated auth token issuance infrastructure.
+monitoring, incident response, an independent smart-contract security review, dedicated auth token issuance infrastructure, and managed key custody/rotation operations.
 
 See [`SECURITY.md`](SECURITY.md) for vulnerability reporting and supported-version
 guidance, [`AUDIT.md`](AUDIT.md) for the current audit status,

@@ -1,4 +1,8 @@
-import { assertGameAccess, verifySessionToken } from "../../../lib/auth";
+import {
+  assertGameAccess,
+  assertSessionNotRevoked,
+  verifySessionToken,
+} from "../../../lib/auth";
 import { createGame, getGame, submitMove } from "../../../lib/gameEngine";
 import { getRedis } from "../../../lib/redisBus";
 
@@ -38,6 +42,8 @@ export async function POST(request: Request): Promise<Response> {
       401,
     );
   }
+
+  await assertSessionNotRevoked(getRedis(), session);
 
   if (body.action === "create") {
     if (!body.whiteUserId || !body.blackUserId) {

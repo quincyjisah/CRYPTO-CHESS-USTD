@@ -10,6 +10,7 @@ export const REDIS_KEYS = {
   escrow: (gameId: string) => `escrow:${gameId}`,
   txLog: "economy:txlog",
   suspiciousUser: (userId: string) => `oracle:suspicious:${userId}`,
+  revokedSession: (jti: string) => `auth:revoked:${jti}`,
 };
 
 export interface GameEvent<TPayload = unknown> {

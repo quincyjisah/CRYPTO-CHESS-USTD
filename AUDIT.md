@@ -62,12 +62,12 @@ This audit fixed one concrete server-side weakness and one supply-chain risk dur
 - **Fix:** Ran `npm audit fix`, updated lockfile/dependency graph; follow-up audit shows 0
   vulnerabilities.
 
-### F-003: Authentication and authorization model remains incomplete (partially mitigated)
+### F-003: Authentication and authorization model remains incomplete (further mitigated)
 
 - **Severity:** High
 - **Status:** Open
 - **Issue:** WebSocket/API now enforce signed session tokens with expiry and game allow-lists,
-  but centralized issuer/rotation/revocation infrastructure is still missing for production.
+  with signed tokens, key-id-based rotation hooks, and revocation checks, but centralized issuer infrastructure and operational key custody are still missing for production.
 - **Recommendation:** Add JWT/session middleware, signature validation, and strict player/game
   ACL checks before real-money usage.
 
@@ -96,7 +96,7 @@ escrow/settlement, expanded anti-fraud, compliance controls, and observability a
 
 ## Recommended next actions (priority order)
 
-1. Build dedicated token issuer/rotation/revocation service (current signed envelopes are local-only).
+1. Build dedicated token issuer service and managed key custody/HSM integration (current signing is still app-local).
 2. Build integration tests that spin up Redis and run end-to-end game + escrow flows.
 3. Implement contract-backed escrow/settlement (testnet first), then audit.
 4. Add observability stack (metrics, structured logs, traces, alerts) and chaos/load tests.

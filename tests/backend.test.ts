@@ -1,5 +1,7 @@
 import {
   assertGameAccess,
+  assertSessionNotRevoked,
+  revokeSessionToken,
   signSessionToken,
   verifySessionToken,
 } from "../lib/auth";
@@ -15,6 +17,19 @@ import {
   pickRarity,
   transferSimulatedPiece,
 } from "../lib/nftPieces";
+
+class FakeRedisRevocation {
+  private data = new Map<string, string>();
+
+  async get(key: string): Promise<string | null> {
+    return this.data.get(key) ?? null;
+  }
+
+  async set(key: string, value: string): Promise<string> {
+    this.data.set(key, value);
+    return "OK";
+  }
+}
 
 describe("hardened ledger", () => {
   it("verifies and replays a hash-linked move chain", () => {
@@ -93,6 +108,37 @@ describe("session auth", () => {
     expect(session.userId).toBe("alice");
     expect(() => assertGameAccess(session, "g1")).not.toThrow();
     expect(() => assertGameAccess(session, "g2")).toThrow();
+  });
+
+  it("supports key rotation via kid/secret mapping", () => {
+    process.env.SESSION_SECRETS = "k1:alpha-secret,k2:beta-secret";
+    process.env.SESSION_ACTIVE_KID = "k2";
+
+    const token = signSessionToken({
+      userId: "alice",
+      exp: Date.now() + 60_000,
+    });
+
+    const session = verifySessionToken(token);
+    expect(session.kid).toBe("k2");
+  });
+
+  it("supports revocation checks", async () => {
+    process.env.SESSION_SECRETS = "k1:alpha-secret";
+    process.env.SESSION_ACTIVE_KID = "k1";
+
+    const token = signSessionToken({
+      userId: "alice",
+      exp: Date.now() + 60_000,
+    });
+    const session = verifySessionToken(token);
+    const redis = new FakeRedisRevocation();
+
+    await assertSessionNotRevoked(redis as never, session);
+    await revokeSessionToken(redis as never, session, "test");
+    await expect(
+      assertSessionNotRevoked(redis as never, session),
+    ).rejects.toThrow("Session token has been revoked.");
   });
 
   it("rejects expired tokens", () => {
