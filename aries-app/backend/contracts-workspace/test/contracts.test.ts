@@ -150,6 +150,20 @@ describe('AriesGenesisNFT', () => {
     expect(unlocksAfter).to.equal(unlocksAt);
   });
 
+  it('resets the transfer cooldown after a successful NFT transfer', async () => {
+    const { nft, minter, player1, player2 } = await loadFixture(deployFixture);
+    await nft.connect(minter).mint(player1.address, 0, 0, minter.address, false, 'ipfs://QmTransferReset');
+    await ethers.provider.send('evm_increaseTime', [24 * 3600]);
+    await ethers.provider.send('evm_mine', []);
+
+    await nft.connect(player1).transferFrom(player1.address, player2.address, 1);
+
+    expect(await nft.ownerOf(1)).to.equal(player2.address);
+    const [canTransferAgain, unlocksAt] = await nft.canTransfer(1);
+    expect(canTransferAgain).to.equal(false);
+    expect(unlocksAt).to.be.greaterThan((await ethers.provider.getBlock('latest'))!.timestamp);
+  });
+
   it('advertises ERC-721, ERC-2981, and AccessControl interfaces', async () => {
     const { nft } = await loadFixture(deployFixture);
     expect(await nft.supportsInterface('0x80ac58cd')).to.equal(true); // ERC-721
@@ -184,6 +198,21 @@ describe('AriesGenesisNFT', () => {
     const [receiver, royaltyAmt] = await nft.royaltyInfo(1, ethers.parseEther('1'));
     expect(receiver).to.equal(treasury.address);
     expect(royaltyAmt).to.equal(ethers.parseEther('0.05')); // 5%
+  });
+
+  it('allows an admin to update the default royalty up to the 10% ceiling', async () => {
+    const { nft, minter, player1, player2 } = await loadFixture(deployFixture);
+    await nft.connect(minter).mint(player1.address, 0, 0, ethers.ZeroAddress, false, 'ipfs://QmAdminRoyalty');
+
+    await expect(nft.setDefaultRoyalty(player2.address, 1000))
+      .to.emit(nft, 'RoyaltyUpdated')
+      .withArgs(player2.address, 1000);
+    const [receiver, royaltyAmount] = await nft.royaltyInfo(1, ethers.parseEther('1'));
+    expect(receiver).to.equal(player2.address);
+    expect(royaltyAmount).to.equal(ethers.parseEther('0.1'));
+
+    await expect(nft.setDefaultRoyalty(player2.address, 1001))
+      .to.be.revertedWith('Royalty cannot exceed 10%');
   });
 
   it('cannot exceed MAX_GENESIS_SUPPLY', async () => {
@@ -263,6 +292,23 @@ describe('AriesEscrow', () => {
     const Escrow = await ethers.getContractFactory('AriesEscrow');
     await expect(Escrow.deploy(treasury.address, [ethers.ZeroAddress])).to.be.revertedWith('Invalid token');
     await expect(Escrow.deploy(treasury.address, [treasury.address])).to.be.revertedWith('Invalid token');
+  });
+
+  it('allows only the admin to add and remove accepted escrow tokens', async () => {
+    const { escrow, owner } = await loadFixture(deployFixture);
+    const MockERC20 = await ethers.getContractFactory('MockERC20');
+    const extraToken = await MockERC20.deploy('Extra Token', 'EXT', 6);
+    const tokenAddress = await extraToken.getAddress();
+
+    await expect(escrow.connect(owner).addToken(tokenAddress))
+      .to.emit(escrow, 'TokenAdded')
+      .withArgs(tokenAddress);
+    expect(await escrow.acceptedTokens(tokenAddress)).to.equal(true);
+
+    await expect(escrow.connect(owner).removeToken(tokenAddress))
+      .to.emit(escrow, 'TokenRemoved')
+      .withArgs(tokenAddress);
+    expect(await escrow.acceptedTokens(tokenAddress)).to.equal(false);
   });
 
   it('rejects fee-on-transfer tokens without leaving undercollateralized escrow', async () => {
