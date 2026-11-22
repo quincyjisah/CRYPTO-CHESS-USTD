@@ -4,7 +4,7 @@
   "description": "Aries Protocol Solidity smart contracts \u2014 NFT + Escrow",
   "scripts": {
     "compile": "cd .. && TS_NODE_PROJECT=contracts-workspace/tsconfig.json ./contracts-workspace/node_modules/.bin/hardhat --config contracts-workspace/hardhat.config.ts compile",
-    "test": "cd .. && TS_NODE_PROJECT=contracts-workspace/tsconfig.json ./contracts-workspace/node_modules/.bin/hardhat --config contracts-workspace/hardhat.config.ts test",
+    "test": "cd .. && TS_NODE_PROJECT=contracts-workspace/tsconfig.json ./contracts-workspace/node_modules/.bin/hardhat --config contracts-workspace/hardhat.config.ts test && cd contracts-workspace && node --test tests/dependency-security.test.mjs",
     "test:gas": "cd .. && REPORT_GAS=true TS_NODE_PROJECT=contracts-workspace/tsconfig.json ./contracts-workspace/node_modules/.bin/hardhat --config contracts-workspace/hardhat.config.ts test",
     "deploy:local": "cd .. && TS_NODE_PROJECT=contracts-workspace/tsconfig.json ./contracts-workspace/node_modules/.bin/hardhat --config contracts-workspace/hardhat.config.ts run contracts-workspace/scripts/deploy.ts --network hardhat",
     "deploy:sepolia": "cd .. && TS_NODE_PROJECT=contracts-workspace/tsconfig.json ./contracts-workspace/node_modules/.bin/hardhat --config contracts-workspace/hardhat.config.ts run contracts-workspace/scripts/deploy.ts --network sepolia",

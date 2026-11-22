@@ -381,6 +381,21 @@ describe('AriesEscrow', () => {
     expect(game.blackLocked).to.be.true;
   });
 
+  it('rejects additional wager locks after both players have locked', async () => {
+    const { escrow, usdt, player1, player2, usdtAddr } = await loadFixture(deployFixture);
+    const gameId = ethers.id('test-no-third-lock');
+    const amount = ethers.parseUnits('10', 6);
+    await usdt.connect(player1).approve(await escrow.getAddress(), amount);
+    await usdt.connect(player2).approve(await escrow.getAddress(), amount);
+    await escrow.connect(player1).lockWager(gameId, player2.address, usdtAddr, amount);
+    await escrow.connect(player2).lockWager(gameId, player1.address, usdtAddr, amount);
+
+    await expect(
+      escrow.connect(player1).lockWager(gameId, player2.address, usdtAddr, amount),
+    ).to.be.revertedWith('Game not in lockable state');
+    expect(await usdt.balanceOf(await escrow.getAddress())).to.equal(amount * 2n);
+  });
+
   it('restricts escrow fee withdrawal to the configured treasury', async () => {
     const { escrow, usdt, player1, player2, treasury, usdtAddr } = await loadFixture(deployFixture);
     const gameId = ethers.id('test-treasury-fees');
