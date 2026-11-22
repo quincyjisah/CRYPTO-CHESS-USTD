@@ -56,6 +56,24 @@ describe('TournamentEngine financial safety', () => {
     })).rejects.toThrow('Paid tournaments are disabled');
   });
 
+  it('creates free tournaments with no entry fee or prize liability', async () => {
+    const { redis, engine } = redisEngine();
+    const tournament = await engine.createTournament({
+      name: 'Free event',
+      format: 'swiss',
+      entryFee: 0,
+      currency: 'FREE',
+      maxPlayers: 8,
+      startsAt: Date.now() + 60_000,
+      timeControl: 'blitz',
+      createdBy: 'owner',
+    });
+
+    expect(tournament.entryFee).toBe(0);
+    expect(tournament.prizePool).toBe(0);
+    expect(await redis.get('tournament:' + tournament.id)).not.toBeNull();
+  });
+
   it('rejects registration in a legacy paid tournament without changing its prize pool', async () => {
     const { redis, engine } = redisEngine();
     const tournament = legacyPaidTournament();
@@ -67,6 +85,38 @@ describe('TournamentEngine financial safety', () => {
     const saved = JSON.parse((await redis.get('tournament:' + tournament.id))!);
     expect(saved.players).toEqual(['player-a']);
     expect(saved.prizePool).toBe(100);
+  });
+
+  it('does not start legacy paid tournaments even when they already have enough players', async () => {
+    const { redis, engine } = redisEngine();
+    const tournament = legacyPaidTournament();
+    tournament.players = ['player-a', 'player-b'];
+    await redis.setex('tournament:' + tournament.id, 604_800, JSON.stringify(tournament));
+
+    await expect(engine.startTournament(tournament.id)).resolves.toBeNull();
+
+    const saved = JSON.parse((await redis.get('tournament:' + tournament.id))!);
+    expect(saved.status).toBe('registration');
+    expect(saved.rounds).toHaveLength(0);
+  });
+
+  it('does not record results for legacy paid tournaments', async () => {
+    const { redis, engine } = redisEngine();
+    const tournament = legacyPaidTournament();
+    tournament.status = 'active';
+    tournament.rounds = [{
+      roundNumber: 1,
+      pairings: [{ gameId: 'legacy-game', whiteUid: 'player-a', blackUid: 'player-b', result: null }],
+      startedAt: Date.now(),
+      completedAt: null,
+    }];
+    await redis.setex('tournament:' + tournament.id, 604_800, JSON.stringify(tournament));
+
+    await expect(engine.recordResult(tournament.id, 'legacy-game', 'white')).resolves.toBeNull();
+
+    const saved = JSON.parse((await redis.get('tournament:' + tournament.id))!);
+    expect(saved.rounds[0].pairings[0].result).toBeNull();
+    expect(redis.lists.get('prizes:queue') ?? []).toHaveLength(0);
   });
 
   it('never creates prize-queue payments for legacy tournament records', async () => {

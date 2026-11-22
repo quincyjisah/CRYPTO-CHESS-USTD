@@ -23,6 +23,7 @@ No production/mainnet deployment is approved. The current repository contains a 
 
 - Escrow winner fee: 2% of the combined pot in current local Solidity source; draw returns both wagers in full.
 - Escrow token support: constructor/admin allow-list; no deployed token addresses are confirmed here.
+- Paid tournaments are disabled in the Cloud Functions and server tournament engine: creation, registration, start, result progression and prize queueing remain blocked until the on-chain escrow/payout path is integrated, tested and independently reviewed.
 - NFT local source: maximum 10,000 lifetime supply, up to 1,000 per season, default 5% ERC-2981 royalty, and optional 3% creator override. No auction or holder reward system exists in the checked-in contract.
 - The local contracts are not an independent audit and do not prove deployment.
 

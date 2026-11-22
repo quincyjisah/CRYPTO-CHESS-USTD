@@ -7,7 +7,7 @@
  *  Round-robin    — all vs all
  *  Elimination    — single/double bracket
  *
- * Prize pool settlement is on-chain via the escrow contract.
+ * Paid entry fees and prize payouts are disabled until the on-chain escrow path is live.
  * All pairings are server-authoritative.
  * Tiebreaks use Buchholz + Sonneborn-Berger.
  */
@@ -23,6 +23,11 @@ import { metrics } from '../shared/metrics';
 
 const TOURNAMENT_TTL = 60 * 60 * 24 * 7; // 7 days in Redis
 
+// Paid tournaments stay disabled until the on-chain entry-fee and payout path is live.
+const isFreeTournament = (t: Pick<Tournament, 'entryFee' | 'prizePool'>): boolean =>
+  Number.isFinite(t.entryFee) && t.entryFee === 0 &&
+  Number.isFinite(t.prizePool) && t.prizePool === 0;
+
 export class TournamentEngine {
   constructor(private redis: Redis) {}
 
@@ -37,6 +42,13 @@ export class TournamentEngine {
     timeControl: string;
     createdBy:   string;
   }): Promise<Tournament> {
+    if (!Number.isFinite(params.entryFee) || params.entryFee < 0) {
+      throw new Error('Invalid tournament entry fee');
+    }
+    if (params.entryFee !== 0) {
+      throw new Error('Paid tournaments are disabled');
+    }
+
     const tournament: Tournament = {
       id:          uuidv4(),
       name:        params.name,
@@ -66,12 +78,12 @@ export class TournamentEngine {
   }> {
     const t = await this.getTournament(tournamentId);
     if (!t) return { ok: false, reason: 'Tournament not found' };
+    if (!isFreeTournament(t)) return { ok: false, reason: 'Paid tournaments are disabled' };
     if (t.status !== 'registration') return { ok: false, reason: 'Registration closed' };
     if (t.players.includes(uid)) return { ok: false, reason: 'Already registered' };
     if (t.players.length >= t.maxPlayers) return { ok: false, reason: 'Tournament full' };
 
     t.players.push(uid);
-    t.prizePool += t.entryFee * 0.9; // 90% of entry fee goes to prize pool, 10% to platform
 
     await this.saveTournament(t);
     logger.info({ tournamentId, uid }, 'Player registered');
@@ -81,7 +93,7 @@ export class TournamentEngine {
   // ─── Start tournament ─────────────────────────────────────────────────────
   async startTournament(tournamentId: string): Promise<Tournament | null> {
     const t = await this.getTournament(tournamentId);
-    if (!t || t.status !== 'registration') return null;
+    if (!t || !isFreeTournament(t) || t.status !== 'registration') return null;
     if (t.players.length < 2) return null;
 
     t.status = 'active';
@@ -267,7 +279,7 @@ export class TournamentEngine {
     result: 'white' | 'black' | 'draw'
   ): Promise<Tournament | null> {
     const t = await this.getTournament(tournamentId);
-    if (!t) return null;
+    if (!t || !isFreeTournament(t)) return null;
 
     for (const round of t.rounds) {
       const pairing = round.pairings.find(p => p.gameId === gameId);
@@ -302,6 +314,10 @@ export class TournamentEngine {
 
   // ─── Prize distribution ───────────────────────────────────────────────────
   async distributePrizes(t: Tournament): Promise<void> {
+    if (!isFreeTournament(t)) {
+      logger.warn({ tournamentId: t.id }, 'Paid tournament prize distribution blocked');
+      return;
+    }
     const standings = this.computeStandings(t);
 
     // Standard prize split: 50% / 25% / 15% / 10%
@@ -327,7 +343,7 @@ export class TournamentEngine {
     }
 
     metrics.inc('tournaments_completed_total');
-    logger.info({ tournamentId: t.id, prizePool: t.prizePool }, 'Tournament prizes distributed');
+    logger.info({ tournamentId: t.id, prizePool: t.prizePool }, 'Tournament completed; paid prize distribution remains disabled');
   }
 
   // ─── Standings ────────────────────────────────────────────────────────────
