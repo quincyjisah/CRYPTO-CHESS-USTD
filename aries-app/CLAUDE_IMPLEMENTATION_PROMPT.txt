@@ -1,0 +1,138 @@
+
+You are acting as a senior staff-level architect and security engineer.
+
+Your task is to continue upgrading the Crypto Chess Arena codebase into a production-grade realtime Web3 chess platform.
+
+Goals:
+1. Refactor architecture by feature domain
+2. Implement anti-cheat systems
+3. Harden wallet authentication
+4. Improve realtime synchronization
+5. Add testing + CI/CD
+6. Improve scalability and observability
+7. Optimize Firestore costs
+8. Improve mobile UX and onboarding
+
+HIGH PRIORITY TASKS
+
+1. FEATURE-BASED REFACTOR
+Refactor:
+src/components
+src/hooks
+src/lib
+
+Into:
+src/features/chess
+src/features/tournaments
+src/features/wallet
+src/features/replay
+src/features/chat
+src/shared
+src/services
+
+Break large files into smaller focused modules.
+
+2. AUTHORITATIVE GAME ENGINE
+Implement:
+- server-authoritative move validation
+- duplicate move prevention
+- reconnect synchronization
+- clock reconciliation
+- illegal move rejection
+
+Suggested stack:
+- Cloud Functions
+- Redis (optional abstraction)
+- deterministic move validation
+
+3. ANTI-CHEAT PIPELINE
+Add:
+- Stockfish move comparison
+- suspicious accuracy scoring
+- move timing analysis
+- engine likelihood scoring
+- moderation queue
+
+Create:
+backend/antiCheat/
+functions/analysis/
+
+4. WALLET SECURITY
+Implement SIWE fully:
+- nonce generation
+- replay protection
+- session expiration
+- chain allowlisting
+- wallet session validation
+
+Reject unsupported chain IDs.
+
+5. FIREBASE HARDENING
+Improve:
+- App Check enforcement
+- stricter Firestore validation
+- write throttling
+- Cloud Function validation layer
+- abuse detection
+
+6. TESTING
+Add:
+- Vitest
+- React Testing Library
+- Playwright
+
+Coverage targets:
+- wallet auth
+- matchmaking
+- move validation
+- tournament logic
+- replay synchronization
+
+7. MONITORING
+Integrate:
+- Sentry
+- PostHog
+- Firebase Performance
+
+Capture:
+- websocket failures
+- move desyncs
+- wallet auth failures
+- tournament crashes
+
+8. PERFORMANCE
+Optimize:
+- rerenders
+- Firestore listeners
+- leaderboard reads
+- replay payload sizes
+
+Use:
+- React.memo
+- useMemo
+- pagination
+- batched listeners
+
+9. MOBILE UX
+Improve:
+- responsive layouts
+- drag interactions
+- chessboard sizing
+- onboarding
+- guest mode
+
+10. CI/CD
+Add:
+- GitHub Actions
+- lint checks
+- test pipeline
+- build verification
+- deployment gating
+
+IMPORTANT
+- Keep TypeScript strict
+- Maintain compatibility with React 19 + Vite
+- Preserve current gameplay behavior
+- Avoid breaking Firebase schema compatibility
+- Add inline documentation
+- Prioritize maintainability and scalability

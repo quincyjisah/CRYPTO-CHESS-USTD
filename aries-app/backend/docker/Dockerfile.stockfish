@@ -1,0 +1,21 @@
+# docker/Dockerfile.stockfish — Stockfish Analysis Worker
+FROM node:20-slim AS builder
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --ignore-scripts
+COPY tsconfig.json ./
+COPY src ./src
+RUN npm run build
+RUN npm prune --production
+
+FROM node:20-slim AS runtime
+RUN apt-get update && apt-get install -y stockfish --no-install-recommends \
+  && rm -rf /var/lib/apt/lists/*
+RUN addgroup --system aries && adduser --system --ingroup aries aries
+WORKDIR /app
+COPY --from=builder --chown=aries:aries /app/dist ./dist
+COPY --from=builder --chown=aries:aries /app/node_modules ./node_modules
+USER aries
+
+ENV SERVICE_NAME=aries-stockfish
+CMD ["node", "dist/stockfish/worker.js"]

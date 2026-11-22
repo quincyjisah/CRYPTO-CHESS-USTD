@@ -1,0 +1,33 @@
+{
+  "name": "aries-contracts",
+  "version": "1.0.0",
+  "description": "Aries Protocol Solidity smart contracts \u2014 NFT + Escrow",
+  "scripts": {
+    "compile": "cd .. && TS_NODE_PROJECT=contracts-workspace/tsconfig.json ./contracts-workspace/node_modules/.bin/hardhat --config contracts-workspace/hardhat.config.ts compile",
+    "test": "cd .. && TS_NODE_PROJECT=contracts-workspace/tsconfig.json ./contracts-workspace/node_modules/.bin/hardhat --config contracts-workspace/hardhat.config.ts test",
+    "test:gas": "cd .. && REPORT_GAS=true TS_NODE_PROJECT=contracts-workspace/tsconfig.json ./contracts-workspace/node_modules/.bin/hardhat --config contracts-workspace/hardhat.config.ts test",
+    "deploy:local": "cd .. && TS_NODE_PROJECT=contracts-workspace/tsconfig.json ./contracts-workspace/node_modules/.bin/hardhat --config contracts-workspace/hardhat.config.ts run contracts-workspace/scripts/deploy.ts --network hardhat",
+    "deploy:sepolia": "cd .. && TS_NODE_PROJECT=contracts-workspace/tsconfig.json ./contracts-workspace/node_modules/.bin/hardhat --config contracts-workspace/hardhat.config.ts run contracts-workspace/scripts/deploy.ts --network sepolia",
+    "deploy:mainnet": "cd .. && TS_NODE_PROJECT=contracts-workspace/tsconfig.json ./contracts-workspace/node_modules/.bin/hardhat --config contracts-workspace/hardhat.config.ts run contracts-workspace/scripts/deploy.ts --network mainnet",
+    "verify:sepolia": "cd .. && TS_NODE_PROJECT=contracts-workspace/tsconfig.json ./contracts-workspace/node_modules/.bin/hardhat --config contracts-workspace/hardhat.config.ts verify --network sepolia",
+    "verify:mainnet": "cd .. && TS_NODE_PROJECT=contracts-workspace/tsconfig.json ./contracts-workspace/node_modules/.bin/hardhat --config contracts-workspace/hardhat.config.ts verify --network mainnet",
+    "coverage": "cd .. && TS_NODE_PROJECT=contracts-workspace/tsconfig.json ./contracts-workspace/node_modules/.bin/hardhat --config contracts-workspace/hardhat.config.ts coverage",
+    "size": "cd .. && TS_NODE_PROJECT=contracts-workspace/tsconfig.json ./contracts-workspace/node_modules/.bin/hardhat --config contracts-workspace/hardhat.config.ts size-contracts",
+    "clean": "cd .. && TS_NODE_PROJECT=contracts-workspace/tsconfig.json ./contracts-workspace/node_modules/.bin/hardhat --config contracts-workspace/hardhat.config.ts clean"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "@nomicfoundation/hardhat-verify": "^2.0.0",
+    "@openzeppelin/contracts": "^5.0.2",
+    "dotenv": "^16.4.5",
+    "hardhat": "^2.22.0",
+    "hardhat-contract-sizer": "^2.10.0",
+    "hardhat-gas-reporter": "^1.0.10",
+    "solidity-coverage": "^0.8.12",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.4.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

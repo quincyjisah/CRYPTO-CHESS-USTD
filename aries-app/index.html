@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Aries Protocol — Crypto Chess Arena | Free-play Prototype</title>
+    <meta name="description" content="Free-play chess and tournament prototype with read-only wallet balance inspection and experimental Web3 infrastructure. Deposits, withdrawals and on-chain wagering are disabled." />
+    <meta name="theme-color" content="#000000" />
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="Aries Protocol — Crypto Chess Arena" />
+    <meta property="og:description" content="Free-play chess prototype. Wallet balances are read-only; deposits and payouts are disabled; on-chain wagering is not enabled." />
+    <meta property="og:type" content="website" />
+
+    <!-- Preconnect to speed up Firestore + Alchemy -->
+    <link rel="preconnect" href="https://firestore.googleapis.com" />
+    <link rel="preconnect" href="https://eth-mainnet.g.alchemy.com" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

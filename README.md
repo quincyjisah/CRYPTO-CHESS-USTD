@@ -1,81 +1,87 @@
-# CRYPTO-CHESS-USTD
+<div align="center">
+  <img src="aries-app/public/project-cover.svg" alt="Aries Protocol — Crypto Chess Arena" width="100%">
+</div>
 
-A minimal TypeScript/Vite web app scaffold for a **Crypto Chess USDT wager lobby**.
-The current implementation is a front-end prototype only: it renders a match dashboard,
-standard chess starting board, player roster, stake totals, and escrow-address format
-status. It does **not** move funds, connect wallets, deploy smart contracts, or settle
-real wagers.
+# Aries Protocol / Crypto Chess — Development Workspace
 
-## Features
+**Purpose:** A multi-part development workspace exploring a chess game product, Web3 wallet connectivity, token/NFT concepts, and a separately tested ERC-20 escrow contract.
 
-- TypeScript domain helpers for chess-board setup, USDT amount formatting, two-player
-  escrow fee math, and EVM-style wallet-address validation.
-- Vite-powered browser UI for a demo wager lobby with user-triggered slow music,
-  move sound effects, mute controls, tipping placeholders, and disabled livestream chips.
-- Vitest unit tests for board and wager helpers.
-- Reproducible npm install through `package-lock.json`.
-- CI workflow for formatting, linting, tests, builds, dependency review, dependency audit,
-  and secret scanning.
-- Security policy and baseline ignore rules for local secrets and generated artifacts.
+| | Project brief |
+|---|---|
+| **Built for** | Chess players, Web3 game developers, smart-contract engineers and reviewers of crypto-native game systems. |
+| **Current stage** | Development prototypes and local smart-contract tests. Not a production wagering platform. |
+| **Value transfer** | No real deposits, withdrawals or payouts are enabled by the current frontend. No production contract deployment is approved. |
+| **Payment design** | Crypto-only is the intended direction for any later real-value feature; there is no live checkout or funded match flow. |
 
-## Project structure
+## This workspace contains separate components
 
-```text
-.github/workflows/ci.yml  CI quality, dependency, and secret-scan checks
-src/chess.ts              Chess and wager domain helpers
-src/main.ts               Browser rendering entrypoint
-src/styles.css            Application styles
-tests/chess.test.ts       Unit tests
-AUDIT.md                  Current repository audit
-SECURITY.md               Vulnerability reporting and supported-version policy
-docs/MAINNET_READINESS.md Mainnet, game, NFT, media, ads, tip, and scale gates
-docs/THREAT_MODEL.md      Exploit, phishing, wallet, stream, NFT, and scale recheck
-docs/ARCHITECTURE.md       Distributed backend and Redis architecture overview
-docs/ADSENSE.md            Safe Google AdSense environment configuration
-docs/AUTH.md               Session-token auth design for API and WebSocket actions
-.env.example               Public environment variable template
-lib/                       Authoritative game, ledger, Redis, oracle, economy, NFT modules
-server/                    WebSocket, static app, and matchmaking services
-```
+### 1. Root Crypto Chess demo
 
-## Requirements
+The top-level Vite application is a demo wager-lobby interface with chess helpers, player/match presentation and simulated escrow/economy modules. Its game UI is not a live wallet or settlement integration. The root `lib/` and `server/` directories contain experimental game-state, Redis, ledger, oracle and WebSocket services; these are not an authenticated, production-integrated wagering backend.
 
-- Node.js 20 or newer
-- npm 10 or newer
+### 2. Aries Protocol application — `aries-app/`
 
-## Getting started
+A separate Vite/React application with free-play chess/tournament concepts, Firebase-backed prototype data and wallet connection/read-only balance inspection. It does not enable on-chain deposits, withdrawals, payouts or live wagering.
+
+### 3. Solidity contracts — `aries-app/backend/contracts/`
+
+- `AriesEscrow.sol`: ERC-20 wager-lock, settle, dispute and timeout-refund contract source.
+- `AriesGenesisNFT.sol`: cosmetic chess-piece NFT source with role-controlled minting, seasonal caps, transfer cooldown and ERC-2981 royalties.
+- `MockERC20.sol` and `MockFeeOnTransferERC20.sol`: local test assets.
+
+The Hardhat test workspace is `aries-app/backend/contracts-workspace/`. Its tests exercise local contract behaviour only; a green local test run is not an independent audit or evidence of a deployed contract.
+
+### 4. Backend and integration experiments
+
+`aries-app/backend/` contains separate API, WebSocket, replay, anti-cheat and tournament experiments. Integration, deployment, authentication/session management and production operations must be verified independently before connecting these services to a public frontend.
+
+## Source-aligned contract behaviour
+
+The current local escrow source defines a **2% fee on a winner settlement** and returns both wagers in full on a draw. It requires equal token/wager amounts from the two players, a trusted `SETTLER_ROLE` to start and settle games, and provides timeout/dispute recovery paths. These are source-code facts, not live service terms; the contracts are not approved for real funds.
+
+The current NFT source has a 10,000-token total ceiling, a maximum 1,000-token seasonal cap, 5% default ERC-2981 royalty (with a 3% per-token creator override when a distinct creator is set), and role-controlled minting. It does not implement an auction or automatic holder-benefit/governance system. Exact behaviour must be confirmed against the contract version selected for any future deployment.
+
+## Local development
+
+Requirements: Node.js 20+ and npm.
+
+Root demo:
 
 ```bash
 npm ci
-npm run dev
+npm test
+npm run lint
+npm run build
 ```
 
-The local development server defaults to <http://localhost:5173>.
-
-## Canonical test and verification commands
+Aries app:
 
 ```bash
-npm run format
-npm run lint
+cd aries-app
+npm ci
 npm test
+npm run lint
 npm run build
-npm run audit
-docker compose config
 ```
 
-`npm test` is the canonical automated test command for this repository.
+Contracts:
 
-## Security and production-readiness notes
+```bash
+cd aries-app/backend/contracts-workspace
+npm ci
+npm test
+npm run compile
+```
 
-This is not a production wagering system. The prototype now documents the intended 2%
-platform-fee rule: for example, `10 + 10 USDT = 20 USDT`, `0.40 USDT` goes to the
-platform, and `19.60 USDT` goes to the winner. Before handling real assets, add and audit
-the missing production components, including wallet connection, chain selection, contract
-code, contract tests, oracle/settlement rules, anti-cheat controls, custody/escrow design,
-monitoring, incident response, an independent smart-contract security review, dedicated auth token issuance infrastructure, and managed key custody/rotation operations.
+Do not run deployment scripts as part of ordinary development. Test compilation and tests only.
 
-See [`SECURITY.md`](SECURITY.md) for vulnerability reporting and supported-version
-guidance, [`AUDIT.md`](AUDIT.md) for the current audit status,
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the distributed architecture,
-[`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) for the exploit/phishing recheck, and
-[`docs/MAINNET_READINESS.md`](docs/MAINNET_READINESS.md) for the mainnet gate list.
+## Release boundary
+
+- No production/mainnet contract deployment has been approved.
+- No real-value wagering, deposit, payout or withdrawal service is active.
+- Contract source has not received an independent smart-contract security audit.
+- App, backend, Firebase rules, escrow and wallet verification still need independent end-to-end adversarial testing.
+- `GAME_RULES.md`, `NFT_RULES.md`, `MAINNET_CHECKLIST.md` and `DEPLOYMENT.md` are draft release documents; see their status notices.
+- Gambling, consumer, privacy, sanctions/AML and cryptoasset regulatory advice is required before any real-value feature is considered.
+
+See [`AUDIT.md`](AUDIT.md), [`SECURITY.md`](SECURITY.md), [`docs/MAINNET_READINESS.md`](docs/MAINNET_READINESS.md) and [`aries-app/README.md`](aries-app/README.md).

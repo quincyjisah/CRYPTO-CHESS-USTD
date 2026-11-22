@@ -1,0 +1,8 @@
+{
+  "name": "Crypto Chess Arena",
+  "description": "Sovereign Broadcast Engine for playing Chess with USDT wagers and NFT rewards.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": []
+}

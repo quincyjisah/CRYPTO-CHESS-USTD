@@ -1,0 +1,158 @@
+# docker/docker-compose.prod.yml
+# Aries Protocol — Production Docker Compose
+# Scale WS nodes: docker compose up --scale ws=10
+#
+# Services:
+#   nginx      — reverse proxy, WebSocket routing, rate limiting
+#   ws         — WebSocket server (horizontal scale N instances)
+#   redis      — Game state, pub/sub, rate limiting (cluster in K8s)
+#   stockfish  — Stockfish analysis worker (anti-cheat)
+#   matchmaker — Matchmaking microservice
+
+version: '3.9'
+
+services:
+
+  # ─── NGINX reverse proxy ──────────────────────────────────────────────────
+  nginx:
+    image: nginx:1.25-alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - ws
+    networks:
+      - aries-net
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+
+  # ─── WebSocket server (horizontally scaled) ───────────────────────────────
+  ws:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.ws
+    restart: always
+    environment:
+      NODE_ENV:       production
+      REDIS_URL:      redis://redis:6379
+      PORT:           8080
+      SERVICE_NAME:   aries-ws
+      FIREBASE_API_KEY: ${FIREBASE_API_KEY}
+      JWT_SECRET:     ${JWT_SECRET}
+      NODE_ID:        "${HOSTNAME}"
+      WS_ALLOWED_ORIGINS: ${WS_ALLOWED_ORIGINS}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - aries-net
+    deploy:
+      replicas: 4
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ─── Redis (single node — use Redis Cluster in K8s) ───────────────────────
+  redis:
+    image: redis:7.2-alpine
+    restart: always
+    command: >
+      redis-server
+      --maxmemory 2gb
+      --maxmemory-policy allkeys-lru
+      --save 60 1000
+      --appendonly yes
+      --appendfsync everysec
+      --tcp-keepalive 300
+    volumes:
+      - redis-data:/data
+    networks:
+      - aries-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 2.5G
+
+  # ─── Stockfish analysis worker ────────────────────────────────────────────
+  stockfish:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.stockfish
+    restart: always
+    environment:
+      REDIS_URL:    redis://redis:6379
+      SERVICE_NAME: aries-stockfish
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - aries-net
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 2G
+
+  # ─── Prometheus ───────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    restart: always
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - aries-net
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+
+  # ─── Grafana ──────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.3.0
+    restart: always
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP:    false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    ports:
+      - "3001:3000"
+    networks:
+      - aries-net
+
+volumes:
+  redis-data:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  aries-net:
+    driver: bridge

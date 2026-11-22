@@ -1,0 +1,1 @@
+{"version":3,"file":"safety.js","sourceRoot":"","sources":["../src/safety.ts"],"names":[],"mappings":";;AAIA,0CAKC;AATD;;;GAGG;AACH,SAAgB,eAAe,CAAC,QAAiB,EAAE,QAAiB;IAClE,OAAO,OAAO,QAAQ,KAAK,QAAQ;WAC9B,MAAM,CAAC,QAAQ,CAAC,QAAQ,CAAC;WACzB,QAAQ,KAAK,CAAC;WACd,QAAQ,KAAK,MAAM,CAAC;AAC3B,CAAC"}
