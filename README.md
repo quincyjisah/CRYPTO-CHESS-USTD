@@ -4,7 +4,7 @@
 
 **Purpose:** A chess-focused Web3 product concept exploring match lobbies, transparent wager accounting and smart-contract escrow design.
 **Built for:** Chess players, Web3 game builders and smart-contract engineers researching fair, verifiable game settlement.
-**Stage:** Prototype and research only. This public repository currently contains project documentation and a landing-page scaffold; it is not a deployable wagering service.
+**Stage:** Prototype and research only. This public repository currently contains project documentation only; it is not a deployable wagering service.
 
 ## Important status
 
