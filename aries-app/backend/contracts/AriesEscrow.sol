@@ -175,6 +175,7 @@ contract AriesEscrow is AccessControl, ReentrancyGuard, Pausable {
         EscrowGame storage game = games[gameId];
         require(game.status == EscrowStatus.BothLocked, "Game not ready to start");
         require(game.startedAt == 0, "Game already started");
+        require(block.timestamp < game.bothLockedAt + LOCK_TIMEOUT, "Unstarted lock window expired");
         require(deadline > block.timestamp, "Invalid game deadline");
         require(deadline <= block.timestamp + MAX_GAME_DURATION, "Game deadline too far");
         game.startedAt = block.timestamp;

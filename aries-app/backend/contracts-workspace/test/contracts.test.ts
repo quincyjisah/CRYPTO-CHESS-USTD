@@ -548,6 +548,23 @@ describe('AriesEscrow', () => {
     ).to.be.reverted;
   });
 
+  it('does not allow the settler to start a fully locked game after the player recovery timeout', async () => {
+    const { escrow, usdt, player1, player2, usdtAddr } = await loadFixture(deployFixture);
+    const gameId = ethers.id('test-start-after-unstarted-timeout');
+    const amount = ethers.parseUnits('10', 6);
+    await usdt.connect(player1).approve(await escrow.getAddress(), amount);
+    await usdt.connect(player2).approve(await escrow.getAddress(), amount);
+    await escrow.connect(player1).lockWager(gameId, player2.address, usdtAddr, amount);
+    await escrow.connect(player2).lockWager(gameId, player1.address, usdtAddr, amount);
+
+    await ethers.provider.send('evm_increaseTime', [25 * 3600]);
+    await ethers.provider.send('evm_mine', []);
+
+    const latest = await ethers.provider.getBlock('latest');
+    await expect(escrow.startGame(gameId, latest!.timestamp + 3600))
+      .to.be.revertedWith('Unstarted lock window expired');
+  });
+
   it('allows both players to recover an unstarted, fully locked game after the timeout', async () => {
     const { escrow, usdt, player1, player2, usdtAddr } = await loadFixture(deployFixture);
     const gameId = ethers.id('test-unstarted-timeout');
