@@ -94,3 +94,9 @@ For every two-player wager match:
 Do not launch mainnet wagers until contracts, game rules, wallet flows, fee accounting,
 NFT minting, tipping, ads, livestreaming, compliance, and operations have all passed testnet
 trials and independent security review.
+
+## Deployment wiring — verified 2026-11-22
+
+The Vercel project named `aries-blackjack` is currently connected to the GitHub repository `quincyjisah/Repository-name-ai-business-automation-platform` (the LeadPilot repository), not `quincyjisah/CRYPTO-CHESS-USTD` or the Aries contract workspace. Its latest production deployment fails with `STATIC_BUILD_NO_OUT_DIR`: the Vercel project expects a `public` output directory, but the selected source/build configuration does not produce one. Recent deployments are not valid Aries builds. The project also reports SSO protection on all non-custom domains and has no custom domain configured.
+
+The actual private contract workspace is `aries-app/backend/contracts-workspace`; its Hardhat package is not the Vercel web-app root. Do not simply point Vercel at the contract workspace. First select and verify the intended user-facing app root, confirm that its GitHub source is the correct project, and configure the matching framework/build output. No Vercel Git connection, project setting, production alias, or deployment has been changed. The contract suite passing locally is not evidence of a live web deployment.

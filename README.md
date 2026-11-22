@@ -1,3 +1,11 @@
+<div align="center"><img src="assets/project-cover.svg" alt="Crypto Chess project cover" width="100%"></div>
+
+**Purpose:** Chess-focused Web3 product research covering wager accounting, escrow contracts, disputes, timeout recovery and cosmetic NFTs.
+**Built for:** Chess players, Web3 game builders and smart-contract engineers.
+**Stage:** Prototype and contract development. The local Solidity suite has 54 passing tests, but there is no verified production deployment, independent smart-contract audit or live wagering service. Do not use real funds.
+
+---
+
 <div align="center">
   <img src="aries-app/public/project-cover.svg" alt="Aries Protocol — Crypto Chess Arena" width="100%">
 </div>
