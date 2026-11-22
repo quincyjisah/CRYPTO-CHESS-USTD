@@ -1,3 +1,5 @@
+<div align="center"><img src="assets/project-cover.svg" alt="Aries Contracts — escrow, disputes and NFT assets" width="100%"></div>
+
 # Aries Protocol — Solidity Contract Test Workspace
 
 **Purpose:** Hardhat compile/test environment for the local Aries escrow and Genesis NFT Solidity sources.
