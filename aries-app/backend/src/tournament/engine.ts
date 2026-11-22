@@ -24,7 +24,8 @@ import { metrics } from '../shared/metrics';
 const TOURNAMENT_TTL = 60 * 60 * 24 * 7; // 7 days in Redis
 
 // Paid tournaments stay disabled until the on-chain entry-fee and payout path is live.
-const isFreeTournament = (t: Pick<Tournament, 'entryFee' | 'prizePool'>): boolean =>
+const isFreeTournament = (t: Pick<Tournament, 'entryFee' | 'prizePool' | 'currency'>): boolean =>
+  t.currency === 'FREE' &&
   Number.isFinite(t.entryFee) && t.entryFee === 0 &&
   Number.isFinite(t.prizePool) && t.prizePool === 0;
 
@@ -45,7 +46,7 @@ export class TournamentEngine {
     if (!Number.isFinite(params.entryFee) || params.entryFee < 0) {
       throw new Error('Invalid tournament entry fee');
     }
-    if (params.entryFee !== 0) {
+    if (params.entryFee !== 0 || params.currency !== 'FREE') {
       throw new Error('Paid tournaments are disabled');
     }
 

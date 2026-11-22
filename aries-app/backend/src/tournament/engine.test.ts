@@ -56,6 +56,20 @@ describe('TournamentEngine financial safety', () => {
     })).rejects.toThrow('Paid tournaments are disabled');
   });
 
+  it('rejects zero-fee tournaments that still declare a payment currency', async () => {
+    const { engine } = redisEngine();
+    await expect(engine.createTournament({
+      name: 'Mislabelled event',
+      format: 'swiss',
+      entryFee: 0,
+      currency: 'USDT',
+      maxPlayers: 8,
+      startsAt: Date.now() + 60_000,
+      timeControl: 'blitz',
+      createdBy: 'owner',
+    })).rejects.toThrow('Paid tournaments are disabled');
+  });
+
   it('creates free tournaments with no entry fee or prize liability', async () => {
     const { redis, engine } = redisEngine();
     const tournament = await engine.createTournament({
