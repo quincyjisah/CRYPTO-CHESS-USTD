@@ -1,8 +1,8 @@
 /**
  * Aries Protocol — Cloud Functions (Firebase Gen 2)
  *
- * All financial settlement happens here — never on the client.
- * The client proposes moves; the server validates and settles.
+ * Game-result validation and rating updates happen here — never on the client.
+ * Real-value settlement is deliberately disabled until the audited escrow flow is integrated.
  *
  * Functions:
  *   settleGame          — triggered when a game doc status → 'finished'
@@ -64,8 +64,8 @@ const QUEUE_TIMEOUT_SECS = 30;     // cancel queue entry after 30s
 
 /**
  * Triggered when a game document's status changes to 'finished'.
- * Re-validates the game result by replaying all moves server-side,
- * then atomically settles both ledgers. Client cannot influence the payout.
+ * Re-validates the game result by replaying all moves server-side. Free games
+ * update ratings only; unsupported real-value games are diverted to disputes.
  */
 export const settleGame = onDocumentUpdated(
   { document: 'games/{gameId}', region: 'us-central1' },
@@ -329,7 +329,8 @@ export const resignGame = onCall(
 /**
  * Triggered when a new matchmaking entry is created.
  * Finds a compatible waiting opponent and pairs them atomically.
- * Uses wager-range shards to avoid Firestore hotspot contention at scale.
+ * Pairs only zero-wager FREE entries; a Firestore transaction claims both
+ * queue records and creates one game, preventing duplicate pairings.
  */
 export const matchmakingPair = onDocumentCreated(
   { document: 'matchmaking/{uid}', region: 'us-central1' },
@@ -413,7 +414,7 @@ export const matchmakingPair = onDocumentCreated(
 // ─── 4. detectFraud ──────────────────────────────────────────────────────────
 
 /**
- * Triggered on every transaction write.
+ * Triggered when a transaction record is created.
  * Flags accounts for suspicious patterns:
  *   - Win rate > 92% over last 100 games (bot assistance)
  *   - Same two wallets playing > 15 times per day (collusion)
