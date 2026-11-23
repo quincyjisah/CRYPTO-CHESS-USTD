@@ -43,7 +43,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        # CodeQL supports the following values keywords for 'language': 'actions', 'c-cpp', 'csharp', 'go', 'java-kotlin', 'javascript-typescript', 'python', 'ruby', 'rust', 'swift'
+          - language: javascript-typescript
+            build-mode: none
+        # The repository's application and backend source is JavaScript/TypeScript.
+        # Add another CodeQL language only when the repository adds supported source.
         # Use `c-cpp` to analyze code written in C, C++ or both
         # Use 'java-kotlin' to analyze code written in Java, Kotlin or both
         # Use 'javascript-typescript' to analyze code written in JavaScript, TypeScript or both

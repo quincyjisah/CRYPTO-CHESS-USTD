@@ -1,0 +1,85 @@
+# monitoring/rules/alerts.yml
+# Aries Protocol — Prometheus Alerting Rules
+
+groups:
+  - name: aries-critical
+    rules:
+
+      # ── WebSocket node down ────────────────────────────────────────────────
+      - alert: WSNodeDown
+        expr: up{job="aries-ws"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "WebSocket node is down"
+          description: "WS node {{ $labels.instance }} has been down for more than 1 minute."
+
+      # ── High connection count ──────────────────────────────────────────────
+      - alert: WSConnectionsHigh
+        expr: aries_ws_connections_active > 4500
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "WebSocket connections approaching node limit"
+          description: "Node {{ $labels.instance }} has {{ $value }} active connections (limit 5000)."
+
+      # ── Redis down ─────────────────────────────────────────────────────────
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis is unreachable"
+          description: "Redis has been down for 30 seconds. All game state is at risk."
+
+      # ── Redis memory pressure ──────────────────────────────────────────────
+      - alert: RedisMemoryHigh
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis memory usage above 85%"
+
+      # ── High error rate ────────────────────────────────────────────────────
+      - alert: WSHighErrorRate
+        expr: rate(aries_ws_handler_errors[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "WebSocket handler error rate is high"
+          description: "{{ $value }} errors/second over the last 5 minutes."
+
+      # ── Anti-cheat critical flags ──────────────────────────────────────────
+      - alert: AntiCheatCriticalSpike
+        expr: rate(aries_anticheat_critical_flags[10m]) > 5
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Spike in critical anti-cheat flags"
+          description: "{{ $value }} critical flags/second — possible coordinated cheating."
+
+      # ── Settlement backlog ────────────────────────────────────────────────
+      - alert: SettlementBacklog
+        expr: aries_settlement_queue_length > 100
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Settlement queue backed up"
+          description: "{{ $value }} unsettled games in the queue. Players may not receive payouts."
+
+      # ── Pod restarts ──────────────────────────────────────────────────────
+      - alert: PodRestartingFrequently
+        expr: rate(kube_pod_container_status_restarts_total{namespace="aries-protocol"}[15m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pod restarting frequently"
+          description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} is restarting."

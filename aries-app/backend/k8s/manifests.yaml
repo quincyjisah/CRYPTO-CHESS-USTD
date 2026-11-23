@@ -1,0 +1,390 @@
+# k8s/ws-deployment.yaml
+# Aries Protocol — Kubernetes Production Manifests
+# Target: GKE / EKS / AKS
+# Scale: 10 → 200 WS pods via HPA (Horizontal Pod Autoscaler)
+# WebSocket sticky sessions via NGINX ingress ip_hash
+
+---
+# ─── Namespace ────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aries-protocol
+  labels:
+    app.kubernetes.io/name: aries-protocol
+    environment: production
+
+---
+# ─── WebSocket Deployment ─────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aries-ws
+  namespace: aries-protocol
+  labels:
+    app: aries-ws
+    version: "1.0.0"
+spec:
+  replicas: 4            # HPA manages this — this is the starting floor
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge:        2   # Spin up 2 new before killing old
+      maxUnavailable:  0   # Zero downtime deploys
+  selector:
+    matchLabels:
+      app: aries-ws
+  template:
+    metadata:
+      labels:
+        app: aries-ws
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port:   "8080"
+        prometheus.io/path:   "/metrics"
+    spec:
+      # Spread pods across nodes and zones for availability
+      topologySpreadConstraints:
+        - maxSkew:           1
+          topologyKey:       kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: aries-ws
+        - maxSkew:           1
+          topologyKey:       topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: aries-ws
+
+      terminationGracePeriodSeconds: 60    # Give WS connections time to drain
+
+      containers:
+        - name: ws
+          image: gcr.io/aries-protocol/ws:latest
+          imagePullPolicy: Always
+          ports:
+            - name: ws
+              containerPort: 8080
+              protocol: TCP
+
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: PORT
+              value: "8080"
+            - name: SERVICE_NAME
+              value: aries-ws
+            - name: NODE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name    # Pod name as NODE_ID
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: aries-secrets
+                  key:  redis-url
+            - name: FIREBASE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aries-secrets
+                  key:  firebase-api-key
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: aries-secrets
+                  key:  jwt-secret
+
+          resources:
+            requests:
+              cpu:    "500m"
+              memory: "512Mi"
+            limits:
+              cpu:    "2000m"
+              memory: "1Gi"
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds:       10
+            failureThreshold:    3
+
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds:       5
+            failureThreshold:    2
+
+          lifecycle:
+            preStop:
+              exec:
+                # Signal server to stop accepting new connections
+                # Existing connections drain during terminationGracePeriodSeconds
+                command: ["/bin/sh", "-c", "sleep 5"]
+
+      # Anti-affinity: never put two WS pods on the same node
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: aries-ws
+                topologyKey: kubernetes.io/hostname
+
+---
+# ─── WebSocket Service ────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: aries-ws-svc
+  namespace: aries-protocol
+  labels:
+    app: aries-ws
+spec:
+  type:     ClusterIP
+  selector:
+    app: aries-ws
+  ports:
+    - name:       ws
+      port:       80
+      targetPort: 8080
+      protocol:   TCP
+
+---
+# ─── Horizontal Pod Autoscaler ────────────────────────────────────────────────
+# Scales WS pods based on CPU and custom WebSocket connection count metric
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: aries-ws-hpa
+  namespace: aries-protocol
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind:       Deployment
+    name:       aries-ws
+  minReplicas: 4
+  maxReplicas: 200        # 200 pods × 5,000 connections = 1,000,000 concurrent users
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type:               Utilization
+          averageUtilization: 60    # Scale up at 60% CPU
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type:               Utilization
+          averageUtilization: 70
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30       # React quickly to traffic spikes
+      policies:
+        - type:          Pods
+          value:         10                # Add up to 10 pods at a time
+          periodSeconds: 30
+    scaleDown:
+      stabilizationWindowSeconds: 300      # Scale down slowly — don't disrupt games
+      policies:
+        - type:          Pods
+          value:         2
+          periodSeconds: 60
+
+---
+# ─── Matchmaker Deployment ────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aries-matchmaker
+  namespace: aries-protocol
+  labels:
+    app: aries-matchmaker
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: aries-matchmaker
+  template:
+    metadata:
+      labels:
+        app: aries-matchmaker
+    spec:
+      containers:
+        - name: matchmaker
+          image: gcr.io/aries-protocol/matchmaker:latest
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: aries-secrets
+                  key:  redis-url
+          resources:
+            requests:
+              cpu:    "250m"
+              memory: "256Mi"
+            limits:
+              cpu:    "1000m"
+              memory: "512Mi"
+
+---
+# ─── Anti-Cheat Oracle Deployment ────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aries-anticheat
+  namespace: aries-protocol
+  labels:
+    app: aries-anticheat
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: aries-anticheat
+  template:
+    metadata:
+      labels:
+        app: aries-anticheat
+    spec:
+      containers:
+        - name: anticheat
+          image: gcr.io/aries-protocol/anticheat:latest
+          env:
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: aries-secrets
+                  key:  redis-url
+          resources:
+            requests:
+              cpu:    "500m"
+              memory: "512Mi"
+            limits:
+              cpu:    "2000m"    # CPU-intensive: Stockfish eval
+              memory: "2Gi"
+
+---
+# ─── Redis Cluster (via Bitnami Helm — apply separately) ─────────────────────
+# helm install redis bitnami/redis-cluster \
+#   --namespace aries-protocol \
+#   --set cluster.nodes=6 \
+#   --set cluster.replicas=1 \
+#   --set auth.password=$REDIS_PASSWORD \
+#   --set persistence.size=20Gi \
+#   --set resources.requests.memory=2Gi
+
+---
+# ─── NGINX Ingress ────────────────────────────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aries-ingress
+  namespace: aries-protocol
+  annotations:
+    kubernetes.io/ingress.class:                 "nginx"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/upstream-hash-by:   "$remote_addr"   # Sticky sessions
+    nginx.ingress.kubernetes.io/limit-rps:          "50"
+    nginx.ingress.kubernetes.io/limit-connections:  "10"
+    cert-manager.io/cluster-issuer:             "letsencrypt-prod"
+spec:
+  tls:
+    - hosts:
+        - ariesprotocol.app
+        - ws.ariesprotocol.app
+      secretName: aries-tls
+  rules:
+    - host: ws.ariesprotocol.app
+      http:
+        paths:
+          - path:     /ws
+            pathType: Prefix
+            backend:
+              service:
+                name: aries-ws-svc
+                port:
+                  number: 80
+          - path:     /api
+            pathType: Prefix
+            backend:
+              service:
+                name: aries-ws-svc
+                port:
+                  number: 80
+
+---
+# ─── Secrets (values injected by CI/CD — never committed) ────────────────────
+apiVersion: v1
+kind: Secret
+metadata:
+  name: aries-secrets
+  namespace: aries-protocol
+type: Opaque
+stringData:
+  redis-url:       "REPLACED_BY_CI"
+  firebase-api-key: "REPLACED_BY_CI"
+  jwt-secret:      "REPLACED_BY_CI"
+  alchemy-rpc:     "REPLACED_BY_CI"
+  treasury-key:    "REPLACED_BY_CI"
+
+---
+# ─── Pod Disruption Budget ────────────────────────────────────────────────────
+# Ensures at least 3 WS pods always run during node maintenance
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: aries-ws-pdb
+  namespace: aries-protocol
+spec:
+  minAvailable: 3
+  selector:
+    matchLabels:
+      app: aries-ws
+
+---
+# ─── Network Policy — zero-trust internal networking ─────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: aries-ws-netpol
+  namespace: aries-protocol
+spec:
+  podSelector:
+    matchLabels:
+      app: aries-ws
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - port: 8080
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: redis
+      ports:
+        - port: 6379
+    - to: []        # Allow external HTTPS (Firebase, Alchemy)
+      ports:
+        - port: 443

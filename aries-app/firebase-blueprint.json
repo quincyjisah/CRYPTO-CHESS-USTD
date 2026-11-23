@@ -1,0 +1,63 @@
+{
+  "entities": {
+    "Profile": {
+      "title": "User Profile",
+      "description": "Represents a user's presence in the Aries Protocol.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "handle": { "type": "string" },
+        "avatar": { "type": "string" },
+        "rank": { "type": "string" },
+        "exp": { "type": "number" },
+        "matches": { "type": "number" },
+        "victories": { "type": "number" },
+        "joinedAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "handle", "joinedAt"]
+    },
+    "Transaction": {
+      "title": "Financial Transaction",
+      "description": "Ledger entry for deposits, wins, and losses.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["Match", "Deposit", "Withdraw", "Bid"] },
+        "status": { "type": "string", "enum": ["Finalized", "Processing", "Failed"] },
+        "amount": { "type": "number" },
+        "currency": { "type": "string" },
+        "txHash": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name", "type", "status", "amount", "createdAt"]
+    },
+    "Message": {
+      "title": "Chat Message",
+      "description": "Broadcast message in the protocol lobby.",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["text", "userId", "userName", "createdAt"]
+    }
+  },
+  "firestore": {
+    "profiles/{userId}": {
+      "schema": "Profile",
+      "description": "User profile data."
+    },
+    "transactions/{txId}": {
+      "schema": "Transaction",
+      "description": "Individual ledger records."
+    },
+    "messages/{messageId}": {
+      "schema": "Message",
+      "description": "Public chat messages."
+    }
+  }
+}
