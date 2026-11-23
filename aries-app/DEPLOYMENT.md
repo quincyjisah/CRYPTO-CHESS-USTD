@@ -36,7 +36,7 @@ These commands compile/test source locally. They do not deploy contracts, connec
 ## Current deployment facts
 
 - The Solidity source is present locally. No verified production or mainnet contract addresses are recorded by this workspace.
-- The public GitHub repository `CRYPTO-CHESS-USTD` contains a project concept/documentation scaffold; it does not contain the complete private Aries application and contract source.
+- The configured Git remote `origin` points to `quincyjisah/CRYPTO-CHESS-USTD`; its `work/aries-source-import` branch was confirmed to exist remotely at the local HEAD commit during this verification. Treat that work branch as development source, not as an approved release branch. Repository visibility and default-branch contents must be checked separately before publishing a release.
 - The existing Vercel project named `aries-blackjack` was previously found linked to the LeadPilot GitHub repository and its build configuration was not an Aries release. Do not treat its deployment status or URL as the Aries application.
 - No real deposit, withdrawal, payout or production wagering flow is enabled in the current frontend.
 
@@ -50,6 +50,17 @@ These commands compile/test source locally. They do not deploy contracts, connec
 6. Establish multisig administration, monitoring, key custody, incident response and rollback/recovery procedures.
 7. Complete jurisdiction-specific legal, privacy and consumer review.
 8. Only then prepare a separate production release approval with the user.
+
+## Firebase App Check
+
+The web client initializes reCAPTCHA v3 App Check when `VITE_RECAPTCHA_SITE_KEY` is set. The six HTTPS callable functions enforce App Check only when the Functions runtime variable `ENFORCE_APP_CHECK=true` is set. Before enabling it:
+
+1. Register the exact web app in Firebase Console → App Check and configure the reCAPTCHA v3 provider.
+2. Set `VITE_RECAPTCHA_SITE_KEY` in the frontend build environment.
+3. Set `ENFORCE_APP_CHECK=true` in the Functions environment and deploy the functions.
+4. Verify authenticated callable requests from a real browser and confirm requests without a valid App Check token are rejected.
+
+Do not enable server enforcement before the matching client key is deployed; legitimate callable requests will otherwise fail. Firestore App Check enforcement is a separate Firebase Console control and is not enabled by the callable configuration.
 
 ## Secret handling
 

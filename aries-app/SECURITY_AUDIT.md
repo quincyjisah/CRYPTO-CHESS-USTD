@@ -221,26 +221,13 @@ The new `useMatchmaking.ts` hook addresses these stability concerns:
 
 ---
 
-## Remaining Recommendations (not yet implemented)
+## Verified Controls and Remaining Recommendations
 
-### HIGH — Move validation should happen server-side
-Currently, move legality is checked client-side in `isLegalChessMove()`. A determined attacker could modify the JavaScript bundle to skip this check and POST any FEN to Firestore. **Recommendation:** Add a Cloud Function trigger on `/games/{gameId}` writes that re-validates the move using a server-side chess engine (e.g., `chess.js` in Node).
+### HIGH — Server-authoritative move validation and result derivation
+**Implemented in the current source:** `functions/src/index.ts` exposes the authenticated `validateMove` callable, which loads the game and validates/applies moves server-side. The `settleGame` trigger replays the stored move history before applying rating results. Firestore rules deny direct client writes to `/games/{gameId}`. Keep these three controls aligned; do not reintroduce client-authoritative game writes.
 
-### HIGH — Game outcome should be determined server-side
-The current architecture trusts the client to determine `result: 'white'` or `result: 'draw'`. A malicious client could write `result: 'white'` on a losing position. **Recommendation:** The Cloud Function validator should be the authoritative source of game outcome, not the client.
-
-### MEDIUM — Add Firebase App Check
-Firebase App Check (with reCAPTCHA v3) would prevent automated scripts from calling your Firestore directly. Enable in Firebase Console → App Check → Register your web app. This will not break legitimate users.
-
-```bash
-npm install firebase  # already installed
-# Then in firebase.ts:
-import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
-initializeAppCheck(app, {
-  provider: new ReCaptchaV3Provider('YOUR_RECAPTCHA_SITE_KEY'),
-  isTokenAutoRefreshEnabled: true
-});
-```
+### MEDIUM — Firebase App Check enforcement
+**Client initialization implemented; callable enforcement is configurable.** The web app initializes reCAPTCHA v3 App Check when `VITE_RECAPTCHA_SITE_KEY` is set. All callable functions now use the shared `ENFORCE_APP_CHECK` setting. Set `ENFORCE_APP_CHECK=true` in the Functions runtime environment only after registering the same web app/provider in Firebase Console and supplying the matching site key to the web build. Otherwise legitimate callable requests will be rejected. Firestore App Check enforcement is a separate Firebase Console setting and is not enabled by this code change; enable and verify it separately if desired.
 
 ### MEDIUM — Use Firestore server timestamps, never client timestamps
 Currently `createdAt: serverTimestamp()` is used correctly everywhere. Ensure no future code passes `new Date()` or `Date.now()` as a timestamp — these can be manipulated by clients with wrong system clocks.
@@ -269,6 +256,6 @@ Before going live, confirm all items below:
 - [ ] Burner wallet tested: deposit → chess game → win → payout → withdraw
 - [ ] Burner wallet tested: deposit → chess game → stalemate → draw refund
 - [ ] Burner wallet tested: NFT bid → on-chain confirmation → Firestore record
-- [ ] Firebase App Check enabled with reCAPTCHA v3
+- [ ] Firebase App Check reCAPTCHA v3 registered; callable enforcement enabled with `ENFORCE_APP_CHECK=true`; Firestore enforcement separately reviewed
 - [ ] CSP headers active in hosting config
 - [ ] Google Analytics / Firebase Crashlytics active for anomaly detection

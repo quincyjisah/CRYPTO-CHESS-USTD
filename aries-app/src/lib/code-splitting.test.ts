@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const app = readFileSync(resolve(process.cwd(), 'src/App.tsx'), 'utf8');
 const auth = readFileSync(resolve(process.cwd(), 'src/lib/AuthContext.tsx'), 'utf8');
+const walletModal = readFileSync(resolve(process.cwd(), 'src/components/WalletModal.tsx'), 'utf8');
 
 describe('Aries application loading boundaries', () => {
   it('loads secondary views only when the selected view is rendered', () => {
@@ -19,16 +20,11 @@ describe('Aries application loading boundaries', () => {
   });
 });
 
-it('keeps the WalletConnect modal dependency families in separate vendor chunks', () => {
+it('keeps WalletConnect lazy-loaded without manually splitting its cyclic package graph', () => {
   const config = readFileSync(resolve(process.cwd(), 'vite.config.ts'), 'utf8');
-  for (const chunk of [
-    'vendor-reown-controllers',
-    'vendor-reown-ui',
-    'vendor-walletconnect',
-    'vendor-viem',
-    'vendor-ox',
-    'vendor-crypto-primitives',
-  ]) {
-    expect(config).toContain(chunk);
+  expect(walletModal).toMatch(/import\(['"]@walletconnect\/ethereum-provider['"]\)/);
+  expect(config).toContain("minify: 'esbuild'");
+  for (const chunk of ['vendor-reown-controllers', 'vendor-reown-ui', 'vendor-walletconnect', 'vendor-viem', 'vendor-ox']) {
+    expect(config).not.toContain(chunk);
   }
 });

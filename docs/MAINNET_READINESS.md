@@ -103,6 +103,11 @@ The actual private contract workspace is `aries-app/backend/contracts-workspace`
 
 ## Dependency security status — verified 2026-11-22
 
-The contracts workspace now resolves patched `tmp` 0.2.7, `serialize-javascript` 7.1.4 and WebSocket 8.23.0 dependencies through scoped overrides. The dependency-version regression test runs as part of the standard workspace `npm test` command. The full suite passes 59 Hardhat contract tests plus one dependency-lockfile regression test. The Hardhat compile command succeeds; the latest run found no Solidity changes requiring recompilation.
+The contracts workspace now resolves patched `tmp` 0.2.7, `serialize-javascript` 7.1.4 and WebSocket 8.23.0 dependencies through scoped overrides. The dependency-version regression test runs as part of the standard workspace `npm test` command. The full suite passes 59 Hardhat contract tests plus one dependency-lockfile regression test. A clean compile (after deleting prior artifacts) regenerated 92 typings and compiled 36 Solidity files successfully.
 
 The current npm audit reports **38 remaining low/moderate advisories (29 low, 9 moderate; zero high or critical)** in the legacy Hardhat 2 / Toolbox 4 development and testing dependency graph. These include old ethers v5 transitive packages, the toolbox, coverage, glob/minimatch and related test utilities. A forced audit fix would replace major Hardhat/toolbox components and was deliberately not applied. Clear the remaining development-toolchain advisories through a reviewed Hardhat/toolbox migration before production deployment or public contract release. The current audit is not zero-finding and does not substitute for an independent contract audit.
+
+
+## Verification update — 2026-11-23
+
+The local Aries frontend passes 11 tests, TypeScript type-check and production Vite build. Cloud Functions pass six tests and TypeScript compilation; the separate backend experiment passes 12 Jest tests and TypeScript type-check. Full-project ESLint remains failing (79 errors, 66 warnings), and Firebase Emulator/rules integration tests have not been run. The frontend build now completes in about 12–16 seconds using esbuild minification, with no circular Reown chunk warning. One generated `core` chunk remains slightly above the 600 kB warning threshold, and Firebase is a 571 kB chunk; revisit these before performance sign-off. App Check callable enforcement is implemented as an opt-in runtime flag and is not enabled until the production reCAPTCHA key/provider is configured and verified.

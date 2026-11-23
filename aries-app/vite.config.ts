@@ -20,7 +20,7 @@ export default defineConfig(({ mode }) => {
     // ─── Build optimisation for 1M-user scale ──────────────────────────────
     build: {
       target: 'es2020',
-      minify: 'terser',
+      minify: 'esbuild', // faster, lower-memory production minification on constrained build hosts
       sourcemap: false,          // never ship sourcemaps to production
       chunkSizeWarningLimit: 600,
 
@@ -31,18 +31,8 @@ export default defineConfig(({ mode }) => {
           manualChunks(id) {
             if (!id.includes('/node_modules/')) return;
 
-            // Keep the optional WalletConnect/Reown QR modal graph out of one
-            // oversized shared chunk. These chunks are requested only when the
-            // user opens the WalletConnect flow.
-            if (id.includes('/node_modules/@reown/appkit-controllers/')) return 'vendor-reown-controllers';
-            if (id.includes('/node_modules/@reown/appkit-ui/')) return 'vendor-reown-ui';
-            if (id.includes('/node_modules/@reown/appkit-utils/')) return 'vendor-reown-utils';
-            if (id.includes('/node_modules/@reown/appkit-common/')) return 'vendor-reown-common';
-            if (id.includes('/node_modules/@walletconnect/')) return 'vendor-walletconnect';
-            if (id.includes('/node_modules/viem/')) return 'vendor-viem';
-            if (id.includes('/node_modules/ox/')) return 'vendor-ox';
-            if (id.includes('/node_modules/@noble/')) return 'vendor-crypto-primitives';
-            if (id.includes('/node_modules/@reown/')) return 'vendor-reown';
+            // Let Rollup preserve the optional WalletConnect/Reown dynamic-import graph.
+            // Splitting its cyclic packages manually produced circular chunk dependencies.
 
             if (id.includes('/node_modules/react/') || id.includes('/node_modules/react-dom/')) return 'vendor-react';
             if (id.includes('/node_modules/firebase/')) return 'vendor-firebase';

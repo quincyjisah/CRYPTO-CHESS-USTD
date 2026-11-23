@@ -1,11 +1,10 @@
 /**
  * ethers.ts — Aries Protocol Web3 utilities
  *
- * Mainnet-ready:
- *  - Enforces Ethereum Mainnet (chainId 1) before any transaction
- *  - Fetches USDT balance (not ETH) as primary balance — matches wagering currency
- *  - Supports MetaMask, Coinbase Wallet, Rabby, any EIP-1193 provider
- *  - All RPC calls go through Alchemy for reliability at scale
+ * Read-only wallet utilities for the current free-play prototype.
+ *  - Connects an EIP-1193 wallet and reads public stablecoin balances
+ *  - Does not request token approvals or submit token transfers
+ *  - No deposit, wager, payout or withdrawal flow is enabled
  */
 
 import { ethers } from 'ethers';
@@ -19,18 +18,7 @@ const MAINNET_ID    = 1;
 const ERC20_ABI = [
   'function balanceOf(address owner) view returns (uint256)',
   'function decimals() view returns (uint8)',
-  'function transfer(address to, uint256 amount) returns (bool)',
-  'function approve(address spender, uint256 amount) returns (bool)',
-  'function allowance(address owner, address spender) view returns (uint256)',
 ];
-
-function getProvider(): ethers.BrowserProvider | null {
-  if (typeof window === 'undefined') return null;
-  const w = window as any;
-  const ethereum = w.ethereum || w.coinbaseWalletExtension || w.rabby;
-  if (!ethereum) return null;
-  return new ethers.BrowserProvider(ethereum);
-}
 
 // ─── Enforce Mainnet ──────────────────────────────────────────────────────────
 export async function enforceMainnet(): Promise<boolean> {
@@ -129,39 +117,6 @@ export async function connectWallet(): Promise<{
     if (err.code === 4001 || err.code === 'ACTION_REJECTED') return null;
     console.error('[Wallet] Connection failed:', err);
     return null;
-  }
-}
-
-// ─── Sign message with nonce ──────────────────────────────────────────────────
-export async function signMessage(message: string): Promise<string | null> {
-  const provider = getProvider();
-  if (!provider) return null;
-  try {
-    const signer = await provider.getSigner();
-    return await signer.signMessage(message);
-  } catch (err: any) {
-    if (err.code === 4001 || err.code === 'ACTION_REJECTED') return null;
-    throw err;
-  }
-}
-
-// ─── Send USDT (for direct on-chain transfers) ────────────────────────────────
-export async function sendUSDT(
-  to: string,
-  amountHuman: number
-): Promise<string | null> {
-  const provider = getProvider();
-  if (!provider) return null;
-  try {
-    const signer   = await provider.getSigner();
-    const contract = new ethers.Contract(USDT_ADDRESS, ERC20_ABI, signer);
-    const amount   = ethers.parseUnits(amountHuman.toString(), 6);
-    const tx       = await contract.transfer(to, amount);
-    await tx.wait(1);
-    return tx.hash;
-  } catch (err: any) {
-    if (err.code === 4001 || err.code === 'ACTION_REJECTED') return null;
-    throw err;
   }
 }
 

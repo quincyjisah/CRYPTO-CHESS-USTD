@@ -4,7 +4,7 @@
  * Configured for 1M-user scale:
  *  - Firestore persistence enabled (offline support + reduces reads)
  *  - Long polling disabled (WebSocket is faster at scale)
- *  - Firebase App Check integration point (uncomment after reCAPTCHA setup)
+ *  - Firebase App Check initialized when VITE_RECAPTCHA_SITE_KEY is configured
  *  - Functions region locked to us-central1 for lowest latency
  */
 

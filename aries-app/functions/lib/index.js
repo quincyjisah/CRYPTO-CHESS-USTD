@@ -10,7 +10,7 @@
  *   validateMove        — HTTPS callable: validates + applies a chess move
  *   matchmakingPair     — triggered when a matchmaking entry is created
  *   detectFraud         — triggered on every transaction write
- *   collectFee          — sends 2% treasury fee on-chain after settlement
+ *   collectFee          — marks legacy fee records pending; no on-chain transfer is enabled
  *   bundleLeaderboard   — scheduled: pre-bundles top-100 for CDN serving
  *   cleanStaleGames     — scheduled: forfeit disconnected players
  *   onUserCreated       — auth trigger: create profile on signup
@@ -59,6 +59,8 @@ const logger = __importStar(require("firebase-functions/logger"));
 const node_crypto_1 = require("node:crypto");
 const chess_js_1 = require("chess.js");
 const safety_1 = require("./safety");
+const appCheck_1 = require("./appCheck");
+const ENFORCE_APP_CHECK = (0, appCheck_1.isAppCheckEnforced)(process.env.ENFORCE_APP_CHECK);
 admin.initializeApp();
 const db = admin.firestore();
 function publicProfileProjection(profile) {
@@ -73,20 +75,8 @@ function publicProfileProjection(profile) {
     };
 }
 // ─── Constants ────────────────────────────────────────────────────────────────
-const PROTOCOL_FEE_RATE = 0.02; // 2% of pot, from winner only
 const MOVE_TIMEOUT_SECS = 60; // forfeit if no move in 60s
 const QUEUE_TIMEOUT_SECS = 30; // cancel queue entry after 30s
-const MAX_WAGER = 1000;
-const MIN_WAGER = 1;
-// Treasury address receives 2% fee on-chain
-const TREASURY_ADDRESS = process.env.TREASURY_ADDRESS || '';
-const ALCHEMY_RPC = process.env.ALCHEMY_RPC_URL || '';
-// USDT Mainnet contract
-const USDT_ADDRESS = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
-const USDT_ABI = [
-    'function transfer(address to, uint256 amount) returns (bool)',
-    'function balanceOf(address) view returns (uint256)',
-];
 // ─── 1. settleGame ────────────────────────────────────────────────────────────
 /**
  * Triggered when a game document's status changes to 'finished'.
@@ -233,7 +223,7 @@ exports.settleGame = (0, firestore_1.onDocumentUpdated)({ document: 'games/{game
  * The server validates the move, applies it, checks for game over,
  * and writes the new state. Client cannot submit illegal moves.
  */
-exports.validateMove = (0, https_1.onCall)({ region: 'us-central1', maxInstances: 1000 }, async (request) => {
+exports.validateMove = (0, https_1.onCall)({ region: 'us-central1', maxInstances: 1000, enforceAppCheck: ENFORCE_APP_CHECK }, async (request) => {
     if (!request.auth)
         throw new https_1.HttpsError('unauthenticated', 'Must be signed in.');
     const { gameId, from, to, promotion = 'q' } = request.data;
@@ -285,7 +275,7 @@ exports.validateMove = (0, https_1.onCall)({ region: 'us-central1', maxInstances
     });
 });
 // ─── Server-validated resignation ─────────────────────────────────────────────
-exports.resignGame = (0, https_1.onCall)({ region: 'us-central1', maxInstances: 500 }, async (request) => {
+exports.resignGame = (0, https_1.onCall)({ region: 'us-central1', maxInstances: 500, enforceAppCheck: ENFORCE_APP_CHECK }, async (request) => {
     if (!request.auth)
         throw new https_1.HttpsError('unauthenticated', 'Must be signed in.');
     const gameId = request.data?.gameId;
@@ -338,7 +328,7 @@ exports.matchmakingPair = (0, firestore_1.onDocumentCreated)({ document: 'matchm
     const myUid = event.params.uid;
     if (!data || data.status !== 'waiting')
         return;
-    const { wager, currency, handle } = data;
+    const { wager, currency } = data;
     if (wager !== 0 || currency !== 'FREE') {
         logger.warn({ uid: myUid }, 'Rejected matchmaking entry: paid games are disabled until escrow is integrated.');
         await event.data?.ref.delete();
@@ -355,7 +345,6 @@ exports.matchmakingPair = (0, firestore_1.onDocumentCreated)({ document: 'matchm
     const opponent = snap.docs.find(d => d.id !== myUid);
     if (!opponent)
         return; // No match yet — wait for next entrant
-    const oppData = opponent.data();
     const gameId = `${myUid.slice(0, 8)}_${opponent.id.slice(0, 8)}_${Date.now()}`;
     const gameRef = db.collection('games').doc(gameId);
     const myQueueRef = db.collection('matchmaking').doc(myUid);
@@ -569,7 +558,7 @@ exports.syncPublicProfile = (0, firestore_1.onDocumentUpdated)({ document: 'prof
         .set(publicProfileProjection(profile), { merge: true });
 });
 // ─── Global chat message (authenticated + server rate limited) ────────────────
-exports.sendGlobalChatMessage = (0, https_1.onCall)({ region: 'us-central1', maxInstances: 100 }, async (request) => {
+exports.sendGlobalChatMessage = (0, https_1.onCall)({ region: 'us-central1', maxInstances: 100, enforceAppCheck: ENFORCE_APP_CHECK }, async (request) => {
     if (!request.auth)
         throw new https_1.HttpsError('unauthenticated', 'Sign in to send a message.');
     const rawText = request.data?.text;
@@ -624,26 +613,18 @@ exports.sendGlobalChatMessage = (0, https_1.onCall)({ region: 'us-central1', max
     });
     return { messageId: messageRef.id };
 });
-// ─── 9. collectFee (on-chain treasury transfer) ───────────────────────────────
+// ─── 9. collectFee (on-chain transfer intentionally disabled) ────────────────
 /**
  * Triggered when a transaction with type 'ProtocolFee' is created.
- * Sends the fee amount in USDT to the treasury wallet on-chain.
- *
- * IMPORTANT: This requires the Cloud Function to have a funded Ethereum
- * wallet. Store the private key in Google Secret Manager — NEVER in env vars
- * directly. See DEPLOYMENT.md for Secret Manager setup.
+ * Records a pending-integration status only. No token transfer is performed.
+ * Keep this disabled until audited escrow settlement, treasury controls and
+ * secret-management procedures are implemented and independently verified.
  */
 exports.collectFee = (0, firestore_1.onDocumentCreated)({ document: 'protocol_fees/{feeId}', region: 'us-central1' }, async (event) => {
     const data = event.data?.data();
-    if (!data || !TREASURY_ADDRESS || !ALCHEMY_RPC)
+    if (!data)
         return;
     try {
-        // Secret Manager integration — see DEPLOYMENT.md
-        // const secretKey = await getSecret('ARIES_TREASURY_PRIVATE_KEY');
-        // const wallet = new ethers.Wallet(secretKey, provider);
-        // const usdt = new ethers.Contract(USDT_ADDRESS, USDT_ABI, wallet);
-        // const tx = await usdt.transfer(TREASURY_ADDRESS, ethers.parseUnits(data.amount.toString(), 6));
-        // await tx.wait(1);
         // The on-chain transfer implementation is not enabled.
         // Never mark a fee as collected without a confirmed transaction receipt.
         await event.data.ref.update({
@@ -658,7 +639,7 @@ exports.collectFee = (0, firestore_1.onDocumentCreated)({ document: 'protocol_fe
     }
 });
 // ─── 10. registerTournamentPlayer (HTTPS Callable) ────────────────────────────
-exports.registerTournamentPlayer = (0, https_1.onCall)({ region: 'us-central1', maxInstances: 100 }, async (request) => {
+exports.registerTournamentPlayer = (0, https_1.onCall)({ region: 'us-central1', maxInstances: 100, enforceAppCheck: ENFORCE_APP_CHECK }, async (request) => {
     if (!request.auth)
         throw new https_1.HttpsError('unauthenticated', 'Must be signed in.');
     const tournamentId = request.data?.tournamentId;
@@ -704,7 +685,7 @@ exports.registerTournamentPlayer = (0, https_1.onCall)({ region: 'us-central1', 
     return outcome;
 });
 // ─── 11. startTournament (HTTPS Callable — admin only) ────────────────────────
-exports.startTournament = (0, https_1.onCall)({ region: 'us-central1', maxInstances: 10 }, async (request) => {
+exports.startTournament = (0, https_1.onCall)({ region: 'us-central1', maxInstances: 10, enforceAppCheck: ENFORCE_APP_CHECK }, async (request) => {
     if (!request.auth)
         throw new https_1.HttpsError('unauthenticated', 'Must be signed in.');
     const tournamentId = request.data?.tournamentId;
@@ -816,7 +797,7 @@ exports.startTournament = (0, https_1.onCall)({ region: 'us-central1', maxInstan
     return { ok: true, round: started.round };
 });
 // ─── 12. createTournament (HTTPS Callable) ────────────────────────────────────
-exports.createTournament = (0, https_1.onCall)({ region: 'us-central1', maxInstances: 10 }, async (request) => {
+exports.createTournament = (0, https_1.onCall)({ region: 'us-central1', maxInstances: 10, enforceAppCheck: ENFORCE_APP_CHECK }, async (request) => {
     if (!request.auth)
         throw new https_1.HttpsError('unauthenticated', 'Must be signed in.');
     const { name, format, entryFee, currency, maxPlayers, startsAt, timeControl } = request.data || {};

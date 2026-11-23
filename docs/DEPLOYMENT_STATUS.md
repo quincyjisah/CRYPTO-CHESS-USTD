@@ -11,7 +11,7 @@ On 2026-11-22, the connected Vercel project `aries-blackjack` (`prj_HEdHWTa9DcQS
 
 The build log confirms Next.js 14.2.15 and ends with `STATIC_BUILD_NO_OUT_DIR`: Vercel expected a static output directory named `public`, which was not produced. The deployment is not a valid Aries build.
 
-The Aries source currently exists in the local `aries-app/` workspace. The public `CRYPTO-CHESS-USTD` repository currently contains only a README and `.github` directory; it does not contain the full Aries application workspace required by the Vercel project. The local `aries-app/` folder is untracked in this workspace and has not been published to GitHub.
+The GitHub repository default branch `main` currently contains only the README, `.github` workflow and project cover. The complete Aries workspace is present on the remote development branch `work/aries-source-import`, which was confirmed to match local commit `b1a7634` during this verification. The `aries-app/` directory is tracked on that development branch. This is not yet a reviewed release branch; do not treat the default branch or the Vercel project as a deployable Aries release.
 
 **Do not relink or redeploy this Vercel project until the intended source repository and production build configuration are reviewed.** A correct release path is:
 
@@ -33,7 +33,13 @@ The Aries source currently exists in the local `aries-app/` workspace. The publi
 
 ## Verification boundary
 
-The private Aries contract workspace has previously passed 54 automated tests and Solidity compilation. These checks do not prove that the incorrectly linked Vercel project is serving Aries, nor do they constitute an independent contract audit or production acceptance test.
+The local Aries contract workspace now passes 59 Hardhat tests plus one dependency-lockfile regression test. A clean Hardhat compile regenerated typings and compiled 36 Solidity files successfully. The Aries frontend passes 11 tests, TypeScript type-check and Vite production build; the Functions package passes six tests and TypeScript build; the separate backend experiment passes 12 Jest tests and TypeScript type-check. The full Aries ESLint scan still reports 79 errors and 66 warnings. Firebase Emulator/rules integration tests and a clean root-demo install/build remain unverified. These checks do not prove that the incorrectly linked Vercel project is serving Aries, nor do they constitute an independent contract audit or production acceptance test.
+
+## Additional security configuration verified 2026-11-23
+
+- Firebase Functions deployment now runs the TypeScript build in a predeploy hook and includes the generated `lib/` entrypoint in the upload package.
+- App Check is initialized by the web client when a reCAPTCHA v3 site key is supplied. All six callable endpoints support enforcement through `ENFORCE_APP_CHECK=true`; enforcement remains off by default until the matching provider/key is registered and verified. Firestore App Check enforcement is a separate console setting.
+- The current wallet utility is read-only: it connects a wallet and reads balances, but does not expose token approval, token transfer or message-signing helpers.
 
 ## Deployment policy
 

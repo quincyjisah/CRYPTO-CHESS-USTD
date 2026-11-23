@@ -2,7 +2,7 @@
 
 **Purpose:** Chess-focused Web3 product research covering wager accounting, escrow contracts, disputes, timeout recovery and cosmetic NFTs.
 **Built for:** Chess players, Web3 game builders and smart-contract engineers.
-**Stage:** Prototype and contract development. The local Solidity suite has 54 passing tests, but there is no verified production deployment, independent smart-contract audit or live wagering service. Do not use real funds.
+**Stage:** Prototype and contract development. The local Solidity suite has 59 passing tests, but there is no verified production deployment, independent smart-contract audit or live wagering service. Do not use real funds.
 
 ---
 
